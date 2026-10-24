@@ -1,0 +1,19 @@
+{
+  "folders": [
+    {
+      "name": "school-management-api",
+      "path": "school-management-api"
+    },
+    {
+      "name": "school-management-ui",
+      "path": "school-management-ui"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/target": true,
+      "**/dist": true
+    }
+  }
+}
