@@ -12,6 +12,7 @@ import {
 import type { SchoolExam, SchoolExamDefinition, SchoolPerson } from "../../../types/api";
 import { useAdminSections } from "../../../hooks/useAdminSections";
 import { SectionSelect } from "./SectionSelect";
+import { DropdownSelect } from "../../shared/DropdownSelect";
 
 export function ExamsManagement() {
   const { sections, error: sectionError, loading: sectionsLoading } = useAdminSections();
@@ -211,12 +212,18 @@ export function ExamsManagement() {
         <>
           {availableDefinitions.length ? (
             <form className="module-form exam-create-form exam-parent-form" onSubmit={addExamToSection}>
-              <label className="module-field">Available school-wide exam
-                <select aria-label="Available school-wide exam" onChange={(event) => setSelectedDefinitionId(event.target.value ? Number(event.target.value) : null)} required value={selectedDefinitionId ?? ""}>
-                  <option value="">Choose an exam</option>
-                  {availableDefinitions.map((definition) => <option key={definition.id} value={definition.id}>{definition.academicYear} · {definition.name}</option>)}
-                </select>
-              </label>
+              <DropdownSelect
+                label="Available school-wide exam"
+                onChange={(value) => setSelectedDefinitionId(value ? Number(value) : null)}
+                options={[
+                  { value: "", label: "Choose an exam" },
+                  ...availableDefinitions.map((definition) => ({
+                    value: String(definition.id),
+                    label: `${definition.academicYear} · ${definition.name}`,
+                  })),
+                ]}
+                value={selectedDefinitionId === null ? "" : String(selectedDefinitionId)}
+              />
               <button className="secondary-button" disabled={saving || selectedDefinitionId === null} type="submit">{saving ? "Saving…" : "Add exam to section"}</button>
             </form>
           ) : <p className="class-empty">{definitions.length ? "All school-wide exams are already active for this section." : "Add a school-wide exam above before activating exams for a section."}</p>}
@@ -224,16 +231,18 @@ export function ExamsManagement() {
             <p className="class-empty">No exams have been created for this section.</p>
           ) : (
             <>
-              <label className="module-field exam-select">Exam
-                <select value={selectedExamId ?? ""} onChange={(event) => {
-                  const nextExamId = Number(event.target.value);
+              <DropdownSelect
+                label="Exam"
+                onChange={(value) => {
+                  const nextExamId = Number(value);
                   const nextExam = exams.find((exam) => exam.id === nextExamId);
                   setSelectedExamId(nextExamId);
                   setSelectedSubjectId(nextExam?.subjects[0]?.id ?? null);
-                }}>
-                  {exams.map((exam) => <option key={exam.id} value={exam.id}>{exam.academicYear} · {exam.name}</option>)}
-                </select>
-              </label>
+                }}
+                options={exams.map((exam) => ({ value: String(exam.id), label: `${exam.academicYear} · ${exam.name}` }))}
+                value={selectedExamId === null ? "" : String(selectedExamId)}
+                wrapperClassName="exam-select"
+              />
               {selectedExam && (
                 <form className="module-form exam-create-form exam-subject-create-form" onSubmit={addSubject}>
                   <label className="module-field">Subject
@@ -248,11 +257,16 @@ export function ExamsManagement() {
               {selectedExam && (
                 selectedExam.subjects.length ? (
                 <>
-                  <label className="module-field exam-select">Subject
-                    <select value={selectedSubjectId ?? ""} onChange={(event) => setSelectedSubjectId(Number(event.target.value))}>
-                      {selectedExam.subjects.map((item) => <option key={item.id} value={item.id}>{item.subject} · {item.maximumMarks} marks</option>)}
-                    </select>
-                  </label>
+                  <DropdownSelect
+                    label="Subject"
+                    onChange={(value) => setSelectedSubjectId(Number(value))}
+                    options={selectedExam.subjects.map((item) => ({
+                      value: String(item.id),
+                      label: `${item.subject} · ${item.maximumMarks} marks`,
+                    }))}
+                    value={selectedSubjectId === null ? "" : String(selectedSubjectId)}
+                    wrapperClassName="exam-select"
+                  />
                   {selectedSubject && <form onSubmit={submitMarks}>
                   <p className="exam-summary">{selectedExam.academicYear} · {selectedExam.name} · {selectedSubject.subject} · Maximum {selectedSubject.maximumMarks} marks</p>
                   {students.length ? (

@@ -11,6 +11,8 @@ public interface SchoolExamSubjectRepository extends JpaRepository<SchoolExamSub
 
     void deleteAllByExam_Section_Id(Long sectionId);
 
+    void deleteAllByExam_Id(Long examId);
+
     Optional<SchoolExamSubject> findByIdAndExam_Id(Long subjectId, Long examId);
 
     Optional<SchoolExamSubject> findByExam_IdAndSectionSubject_Id(Long examId, Long sectionSubjectId);

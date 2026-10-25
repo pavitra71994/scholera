@@ -529,6 +529,11 @@ class SchoolManagementApiTest {
                 .andExpect(jsonPath("$[0].percentage", is(50.0)))
                 .andExpect(jsonPath("$[0].sectionRank", is(3)))
                 .andExpect(jsonPath("$[0].classRank", is(3)))
+                .andExpect(jsonPath("$[0].yearTotalMarks", is(70.0)))
+                .andExpect(jsonPath("$[0].yearMaximumMarks", is(150.0)))
+                .andExpect(jsonPath("$[0].yearPercentage", is(46.67)))
+                .andExpect(jsonPath("$[0].yearSectionRank", is(3)))
+                .andExpect(jsonPath("$[0].yearClassRank", is(3)))
                 .andExpect(jsonPath("$[0].subjects[0].subject", is("Mathematics")))
                 .andExpect(jsonPath("$[0].subjects[0].obtainedMarks", is(50.0)));
         mvc.perform(get("/api/v1/student/attendance-history").with(user(usernames[0]).roles("STUDENT")))
@@ -709,6 +714,72 @@ class SchoolManagementApiTest {
                 .andExpect(jsonPath("$.students[0].dateOfBirth").doesNotExist());
         mvc.perform(get("/api/v1/teacher/sections/" + unassignedSectionId + "/progress").with(teacher))
                 .andExpect(status().isForbidden());
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/v1/exams/" + examId + "/subjects/" + subjectId)
+                        .with(teacher)
+                        .with(csrf()))
+                .andExpect(status().isForbidden());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/v1/exams/" + examId + "/subjects/" + subjectId)
+                        .with(admin)
+                        .with(csrf()))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/exams").with(admin).param("sectionId", String.valueOf(assignedSectionId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].subjects", Matchers.empty()));
+
+        var recreatedSubject = mvc.perform(post("/api/v1/exams/" + examId + "/subjects")
+                        .with(admin)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"subject":"Science","maximumMarks":40}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long recreatedSubjectId = ((Number) com.jayway.jsonpath.JsonPath.read(
+                recreatedSubject.getResponse().getContentAsString(), "$.id")).longValue();
+        mvc.perform(post("/api/v1/exams/subjects/" + recreatedSubjectId + "/marks")
+                        .with(admin)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"marks":[{"studentId":%d,"obtainedMarks":35}]}
+                                """.formatted(studentId)))
+                .andExpect(status().isOk());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .delete("/api/v1/exams/" + examId)
+                                .with(teacher)
+                                .with(csrf()))
+                .andExpect(status().isForbidden());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .delete("/api/v1/exams/" + examId)
+                                .with(admin)
+                                .with(csrf()))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/exams").with(admin).param("sectionId", String.valueOf(assignedSectionId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.examDefinitionId == " + examDefinitionId + ")]", Matchers.empty()));
+        mvc.perform(get("/api/v1/exams").with(admin).param("sectionId", String.valueOf(secondAssignedSectionId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.examDefinitionId == " + examDefinitionId + ")]", Matchers.hasSize(1)));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/v1/exams/definitions/" + examDefinitionId)
+                        .with(teacher)
+                        .with(csrf()))
+                .andExpect(status().isForbidden());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/v1/exams/definitions/" + examDefinitionId)
+                        .with(admin)
+                        .with(csrf()))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/exams").with(admin).param("sectionId", String.valueOf(assignedSectionId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.examDefinitionId == " + examDefinitionId + ")]", Matchers.empty()));
+        mvc.perform(get("/api/v1/exams").with(admin).param("sectionId", String.valueOf(secondAssignedSectionId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.examDefinitionId == " + examDefinitionId + ")]", Matchers.empty()));
 
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .put("/api/v1/people/" + teacherId + "/teacher-sections")

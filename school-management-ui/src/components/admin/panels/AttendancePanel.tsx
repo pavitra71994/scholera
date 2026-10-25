@@ -6,6 +6,7 @@ import { attendanceOptions } from "../../../constants/attendance";
 import { useAdminSections } from "../../../hooks/useAdminSections";
 import { localDate } from "../../../utils/attendance";
 import { SectionSelect } from "./SectionSelect";
+import { DropdownSelect } from "../../shared/DropdownSelect";
 
 export function AttendanceManagement() {
   const { sections, error: sectionError, loading: sectionsLoading } = useAdminSections();
@@ -36,7 +37,11 @@ export function AttendanceManagement() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!sectionId || students.some((student) => !statuses[student.studentId])) return;
+    if (!sectionId || students.some((student) => !statuses[student.studentId])) {
+      setError("Choose an attendance status for every student.");
+      return;
+    }
+    setError("");
     setSaving(true);
     setError("");
     setMessage("");
@@ -88,18 +93,20 @@ export function AttendanceManagement() {
                 <tr key={student.studentId}>
                   <td>{student.fullName}</td>
                   <td>
-                    <select
-                      aria-label={`Attendance for ${student.fullName}`}
-                      required
-                      value={statuses[student.studentId] ?? ""}
-                      onChange={(event) => setStatuses((current) => ({
+                    <DropdownSelect
+                      hideLabel
+                      label={`Attendance for ${student.fullName}`}
+                      onChange={(value) => setStatuses((current) => ({
                         ...current,
-                        [student.studentId]: event.target.value as AttendanceStatus | "",
+                        [student.studentId]: value as AttendanceStatus | "",
                       }))}
-                    >
-                      <option value="">Choose status</option>
-                      {attendanceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
+                      options={[
+                        { value: "", label: "Choose status" },
+                        ...attendanceOptions.map((option) => ({ value: option.value, label: option.label })),
+                      ]}
+                      value={statuses[student.studentId] ?? ""}
+                      wrapperClassName="table-dropdown"
+                    />
                   </td>
                 </tr>
               ))}</tbody>

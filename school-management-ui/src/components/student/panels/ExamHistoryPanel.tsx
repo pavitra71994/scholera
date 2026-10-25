@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getStudentExamResults } from "../../../services/api";
 import type { StudentExamResult } from "../../../types/api";
+import { DropdownSelect } from "../../shared/DropdownSelect";
 
 export function StudentExamHistoryPanel() {
   const [results, setResults] = useState<StudentExamResult[] | null>(null);
@@ -23,39 +24,61 @@ export function StudentExamHistoryPanel() {
     <section className="student-panel">
       <div className="section-heading">
         <div><p className="eyebrow">Your progress</p><h3>Exam Results &amp; Progress</h3></div>
-        <label className="year-picker">Academic year
-          <select aria-label="Academic year" onChange={(event) => setSelectedYear(Number(event.target.value))} value={selectedYear}>
-            {years.map((year) => <option key={year} value={year}>{year}</option>)}
-          </select>
-        </label>
+        <DropdownSelect
+          label="Academic year"
+          onChange={(year) => setSelectedYear(Number(year))}
+          options={years.map((year) => ({ value: String(year), label: String(year) }))}
+          value={String(selectedYear)}
+          wrapperClassName="year-picker"
+        />
       </div>
-      <p className="muted">Choose a year to review each exam total, percentage, and class and section rank.</p>
+      <p className="muted">Choose a year to review your annual total and rank, then explore each exam’s subject marks.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
       {results ? yearResults.length ? (
-        <div className="exam-result-list">
-          {yearResults.map((result) => (
-            <details className="exam-result-card" key={result.examId}>
-              <summary>
-                <span className="exam-result-title">{result.examName}</span>
-                <span className="exam-result-total">{result.totalMarks} / {result.maximumMarks}</span>
-                <span className="exam-result-percentage">{result.percentage}%</span>
-                <span className="exam-result-ranks">Section #{result.sectionRank} · Class #{result.classRank}</span>
-              </summary>
-              <div className="student-table-wrap">
-                <table className="student-table">
-                  <thead><tr><th>Subject</th><th>Marks</th><th>Percentage</th></tr></thead>
-                  <tbody>{result.subjects.map((subject) => (
-                    <tr key={subject.subject}>
-                      <td>{subject.subject}</td>
-                      <td>{subject.obtainedMarks} / {subject.maximumMarks}</td>
-                      <td>{subject.percentage}%</td>
-                    </tr>
-                  ))}</tbody>
-                </table>
-              </div>
-            </details>
-          ))}
-        </div>
+        <>
+          <section className="annual-result-summary" aria-label={`${selectedYear} annual results`}>
+            <div className="annual-result-heading">
+              <div><p className="eyebrow">{selectedYear} academic year</p><h4>Yearly performance</h4></div>
+              {(yearResults[0].yearSectionRank <= 3 || yearResults[0].yearClassRank <= 3) && (
+                <p className="annual-result-congratulations" role="status">
+                  Congratulations! You are among the top 3 in your
+                  {yearResults[0].yearClassRank <= 3 ? ` class (#${yearResults[0].yearClassRank})` : ` section (#${yearResults[0].yearSectionRank})`}
+                  {" "}this year.
+                </p>
+              )}
+            </div>
+            <div className="annual-result-metrics">
+              <div><span>Total marks</span><strong>{yearResults[0].yearTotalMarks} / {yearResults[0].yearMaximumMarks}</strong></div>
+              <div><span>Year percentage</span><strong>{yearResults[0].yearPercentage}%</strong></div>
+              <div><span>Section rank</span><strong>#{yearResults[0].yearSectionRank}</strong></div>
+              <div><span>Class rank</span><strong>#{yearResults[0].yearClassRank}</strong></div>
+            </div>
+          </section>
+          <div className="exam-result-list">
+            {yearResults.map((result) => (
+              <details className="exam-result-card" key={result.examId}>
+                <summary>
+                  <span className="exam-result-title">{result.examName}</span>
+                  <span className="exam-result-total">{result.totalMarks} / {result.maximumMarks}</span>
+                  <span className="exam-result-percentage">{result.percentage}%</span>
+                  <span className="exam-result-ranks">Section rank: #{result.sectionRank} · Class rank: #{result.classRank}</span>
+                </summary>
+                <div className="student-table-wrap">
+                  <table className="student-table">
+                    <thead><tr><th>Subject</th><th>Marks</th><th>Percentage</th></tr></thead>
+                    <tbody>{result.subjects.map((subject) => (
+                      <tr key={subject.subject}>
+                        <td>{subject.subject}</td>
+                        <td>{subject.obtainedMarks} / {subject.maximumMarks}</td>
+                        <td>{subject.percentage}%</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </details>
+            ))}
+          </div>
+        </>
       ) : <p className="student-empty">No exam results recorded for {selectedYear}.</p> : !error ? <p className="muted">Loading your results…</p> : null}
     </section>
   );

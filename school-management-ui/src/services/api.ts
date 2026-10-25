@@ -220,6 +220,18 @@ export async function createSchoolExamDefinition(definition: {
   return mutate<SchoolExamDefinition>("/exams/definitions", "POST", definition);
 }
 
+export async function deleteSchoolExamDefinition(definitionId: number): Promise<void> {
+  await mutate<void>(`/exams/definitions/${definitionId}`, "DELETE");
+}
+
+export async function deleteExamFromSection(examId: number): Promise<void> {
+  await mutate<void>(`/exams/${examId}`, "DELETE");
+}
+
+export async function deleteExamSubject(examId: number, subjectId: number): Promise<void> {
+  await mutate<void>(`/exams/${examId}/subjects/${subjectId}`, "DELETE");
+}
+
 export async function getSectionSubjects(sectionId: number): Promise<SchoolSectionSubject[]> {
   return request<SchoolSectionSubject[]>(`/exams/sections/${sectionId}/subjects`);
 }

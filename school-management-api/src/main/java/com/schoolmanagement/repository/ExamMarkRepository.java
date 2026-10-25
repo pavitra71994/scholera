@@ -15,6 +15,10 @@ public interface ExamMarkRepository extends JpaRepository<ExamMark, Long> {
 
     void deleteAllByExamSubject_Exam_Section_Id(Long sectionId);
 
+    void deleteAllByExamSubject_Exam_Id(Long examId);
+
+    void deleteAllByExamSubject_Id(Long examSubjectId);
+
     @EntityGraph(attributePaths = {"examSubject", "examSubject.exam", "examSubject.sectionSubject", "student"})
     List<ExamMark> findAllByExamSubject_Exam_Section_IdOrderByExamSubject_Exam_AcademicYearDescExamSubject_Exam_NameAscExamSubject_SectionSubject_SubjectAscStudent_FullNameAsc(
             Long sectionId);
@@ -52,6 +56,35 @@ public interface ExamMarkRepository extends JpaRepository<ExamMark, Long> {
             order by sum(mark.obtainedMarks) desc, student.id asc
             """)
     List<ExamResultTotal> findAllClassExamTotals(Long classId, Integer academicYear, String examName);
+
+    @Query("""
+            select student.id as studentId, sum(mark.obtainedMarks) as totalMarks
+            from ExamMark mark
+            join mark.student student
+            join mark.examSubject examSubject
+            join examSubject.exam exam
+            join exam.section section
+            where section.id = :sectionId
+              and exam.academicYear = :academicYear
+            group by student.id
+            order by sum(mark.obtainedMarks) desc, student.id asc
+            """)
+    List<ExamResultTotal> findAllSectionYearTotals(Long sectionId, Integer academicYear);
+
+    @Query("""
+            select student.id as studentId, sum(mark.obtainedMarks) as totalMarks
+            from ExamMark mark
+            join mark.student student
+            join mark.examSubject examSubject
+            join examSubject.exam exam
+            join exam.section section
+            join section.schoolClass schoolClass
+            where schoolClass.id = :classId
+              and exam.academicYear = :academicYear
+            group by student.id
+            order by sum(mark.obtainedMarks) desc, student.id asc
+            """)
+    List<ExamResultTotal> findAllClassYearTotals(Long classId, Integer academicYear);
 
     @Query("""
             select student.id as studentId, student.fullName as studentName,

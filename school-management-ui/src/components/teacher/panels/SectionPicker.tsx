@@ -1,4 +1,5 @@
 import type { TeacherSection } from "../../../types/api";
+import { DropdownSelect } from "../../shared/DropdownSelect";
 
 export function SectionPicker({
   sections,
@@ -9,20 +10,18 @@ export function SectionPicker({
   selected: number | null;
   onChange: (sectionId: number | null) => void;
 }) {
-  return (
-    <label className="module-field">
-      Assigned section
-      <select
-        onChange={(event) => onChange(event.target.value ? Number(event.target.value) : null)}
-        value={selected ?? ""}
-      >
-        <option value="">Choose a section</option>
-        {sections.map((section) => (
-          <option key={section.id} value={section.id}>{section.className} · {section.name}</option>
-        ))}
-      </select>
-    </label>
-  );
+  return <DropdownSelect
+    label="Assigned section"
+    onChange={(value) => onChange(value ? Number(value) : null)}
+    options={[
+      { value: "", label: "Choose a section" },
+      ...sections.map((section) => ({
+        value: String(section.id),
+        label: `${section.className} · ${section.name}`,
+      })),
+    ]}
+    value={selected === null ? "" : String(selected)}
+  />;
 }
 
 export function SectionEmptyState({ sections, loading, error }: {

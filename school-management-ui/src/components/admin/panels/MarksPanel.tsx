@@ -3,6 +3,7 @@ import { getExams, getPeople, saveExamMarks } from "../../../services/api";
 import type { SchoolExam, SchoolPerson } from "../../../types/api";
 import { useAdminSections } from "../../../hooks/useAdminSections";
 import { SectionSelect } from "./SectionSelect";
+import { DropdownSelect } from "../../shared/DropdownSelect";
 
 export function MarksRegisterPanel() {
   const { sections, error: sectionError, loading: sectionsLoading } = useAdminSections();
@@ -89,24 +90,31 @@ export function MarksRegisterPanel() {
         <p className="muted">Loading exams…</p>
       ) : exams.length ? (
         <>
-          <label className="module-field exam-select">Exam
-            <select aria-label="Exam" onChange={(event) => {
-              const selected = exams.find((exam) => exam.id === Number(event.target.value)) ?? null;
+          <DropdownSelect
+            label="Exam"
+            onChange={(value) => {
+              const selected = exams.find((exam) => exam.id === Number(value)) ?? null;
               setExamId(selected?.id ?? null);
               setSubjectId(selected?.subjects[0]?.id ?? null);
-            }} value={examId ?? ""}>
-              {exams.map((exam) => <option key={exam.id} value={exam.id}>{exam.academicYear} · {exam.name}</option>)}
-            </select>
-          </label>
+            }}
+            options={exams.map((exam) => ({ value: String(exam.id), label: `${exam.academicYear} · ${exam.name}` }))}
+            value={examId === null ? "" : String(examId)}
+            wrapperClassName="exam-select"
+          />
           {selectedExam?.subjects.length ? (
             <>
-              <label className="module-field exam-select">Subject
-                <select aria-label="Subject" onChange={(event) => setSubjectId(Number(event.target.value))} value={subjectId ?? ""}>
-                  {selectedExam.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.subject} · {subject.maximumMarks} marks</option>)}
-                </select>
-              </label>
+              <DropdownSelect
+                label="Subject"
+                onChange={(value) => setSubjectId(Number(value))}
+                options={selectedExam.subjects.map((subject) => ({
+                  value: String(subject.id),
+                  label: `${subject.subject} · ${subject.maximumMarks} marks`,
+                }))}
+                value={subjectId === null ? "" : String(subjectId)}
+                wrapperClassName="exam-select"
+              />
               {students.length && selectedSubject ? (
-                <form onSubmit={submitMarks}>
+                <form className="marks-entry-form" onSubmit={submitMarks}>
                   <div className="module-table-wrap">
                     <table className="module-table">
                       <thead><tr><th>Student</th><th>Score / {selectedSubject.maximumMarks}</th></tr></thead>
@@ -131,7 +139,7 @@ export function MarksRegisterPanel() {
                 </form>
               ) : <p className="class-empty">No students are enrolled in this section.</p>}
             </>
-          ) : <p className="class-empty">No section subjects yet. Add them in Exam Setup.</p>}
+          ) : <p className="class-empty">No subjects configured for this exam and section yet. Add them in admin Exam Setup.</p>}
         </>
       ) : <p className="class-empty">No exams or marks are configured for this section yet.</p>}
     </section>

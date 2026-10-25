@@ -86,17 +86,38 @@ public class StudentPortalController {
     public List<ExamResultResponse> getExamResults(Authentication authentication) {
         SchoolPerson student = currentStudent(authentication);
         Map<Long, List<ExamMark>> marksByExam = new LinkedHashMap<>();
+        Map<Integer, List<ExamMark>> marksByYear = new LinkedHashMap<>();
         for (ExamMark mark : marks.findAllByStudent_IdOrderByExamSubject_Exam_AcademicYearDescExamSubject_Exam_NameAscExamSubject_SectionSubject_SubjectAscIdAsc(student.getId())) {
             marksByExam.computeIfAbsent(mark.getExamSubject().getExam().getId(), ignored -> new ArrayList<>()).add(mark);
+            marksByYear.computeIfAbsent(mark.getExamSubject().getExam().getAcademicYear(), ignored -> new ArrayList<>()).add(mark);
         }
+
+        Map<Integer, YearResultSummary> yearSummaries = new LinkedHashMap<>();
+        marksByYear.forEach((academicYear, yearMarks) -> {
+            SchoolExam yearExam = yearMarks.get(0).getExamSubject().getExam();
+            SchoolSection yearSection = yearExam.getSection();
+            SchoolClass yearClass = yearSection.getSchoolClass();
+            BigDecimal yearObtained = yearMarks.stream()
+                    .map(ExamMark::getObtainedMarks)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal yearMaximum = yearMarks.stream()
+                    .map(mark -> mark.getExamSubject().getMaximumMarks())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal yearPercentage = yearMaximum.signum() == 0
+                    ? BigDecimal.ZERO.setScale(2)
+                    : yearObtained.multiply(BigDecimal.valueOf(100)).divide(yearMaximum, 2, RoundingMode.HALF_UP);
+            yearSummaries.put(academicYear, new YearResultSummary(
+                    yearObtained,
+                    yearMaximum,
+                    yearPercentage,
+                    rankFor(marks.findAllSectionYearTotals(yearSection.getId(), academicYear), student.getId()),
+                    rankFor(marks.findAllClassYearTotals(yearClass.getId(), academicYear), student.getId())));
+        });
 
         return marksByExam.values().stream().map(examMarks -> {
             SchoolExam exam = examMarks.get(0).getExamSubject().getExam();
-            SchoolSection section = exam.getSection();
-            SchoolClass schoolClass = section.getSchoolClass();
             List<ExamMarkRepository.ExamResultTotal> sectionTotals = marks.findAllExamTotals(exam.getId());
-            List<ExamMarkRepository.ExamResultTotal> classTotals = marks.findAllClassExamTotals(
-                    schoolClass.getId(), exam.getAcademicYear(), exam.getName());
+            YearResultSummary yearSummary = yearSummaries.get(exam.getAcademicYear());
             List<ExamSubjectResult> subjectResults = examMarks.stream()
                     .map(mark -> {
                         BigDecimal maximum = mark.getExamSubject().getMaximumMarks();
@@ -127,7 +148,13 @@ public class StudentPortalController {
                     maximum,
                     percentage,
                     rankFor(sectionTotals, student.getId()),
-                    rankFor(classTotals, student.getId()),
+                    rankFor(marks.findAllClassExamTotals(
+                            exam.getSection().getSchoolClass().getId(), exam.getAcademicYear(), exam.getName()), student.getId()),
+                    yearSummary.totalMarks(),
+                    yearSummary.maximumMarks(),
+                    yearSummary.percentage(),
+                    yearSummary.sectionRank(),
+                    yearSummary.classRank(),
                     subjectResults);
         }).toList();
     }
@@ -331,7 +358,20 @@ public class StudentPortalController {
             BigDecimal percentage,
             int sectionRank,
             int classRank,
+            BigDecimal yearTotalMarks,
+            BigDecimal yearMaximumMarks,
+            BigDecimal yearPercentage,
+            int yearSectionRank,
+            int yearClassRank,
             List<ExamSubjectResult> subjects) {
+    }
+
+    private record YearResultSummary(
+            BigDecimal totalMarks,
+            BigDecimal maximumMarks,
+            BigDecimal percentage,
+            int sectionRank,
+            int classRank) {
     }
 
     public record AttendanceHistoryEntry(

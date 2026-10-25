@@ -19,6 +19,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -102,6 +103,33 @@ public class SchoolExamController {
         return new ExamDefinitionResponse(definition.getId(), definition.getName(), definition.getAcademicYear());
     }
 
+    @DeleteMapping("/definitions/{definitionId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void deleteDefinition(@PathVariable Long definitionId) {
+        SchoolExamDefinition definition = definitions.findById(definitionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "School exam not found."));
+        for (SchoolExam exam : exams.findAllByDefinition_Id(definitionId)) {
+            marks.deleteAllByExamSubject_Exam_Id(exam.getId());
+            subjects.deleteAllByExam_Id(exam.getId());
+            exams.delete(exam);
+        }
+        definitions.delete(definition);
+    }
+
+    @DeleteMapping("/{examId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void deleteExamFromSection(@PathVariable Long examId) {
+        SchoolExam exam = exams.findById(examId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Exam not found."));
+        marks.deleteAllByExamSubject_Exam_Id(examId);
+        subjects.deleteAllByExam_Id(examId);
+        exams.delete(exam);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
@@ -158,16 +186,24 @@ public class SchoolExamController {
         String subjectName = request.subject().trim();
         SchoolSectionSubject sectionSubject = sectionSubjects
                 .findBySection_IdAndSubjectIgnoreCase(exam.getSection().getId(), subjectName)
-                .orElseGet(() -> {
-                    SchoolSectionSubject created = sectionSubjects.save(new SchoolSectionSubject(
-                            exam.getSection(), subjectName, request.maximumMarks()));
-                    examProvisioning.addSectionSubjectToExistingExams(
-                            created, exams.findAllBySection_Id(exam.getSection().getId()));
-                    return created;
-                });
-        return toSubjectResponse(subjects.findByExam_IdAndSectionSubject_Id(examId, sectionSubject.getId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.INTERNAL_SERVER_ERROR, "Subject was not provisioned for this exam.")));
+                .orElseGet(() -> sectionSubjects.save(new SchoolSectionSubject(
+                        exam.getSection(), subjectName, request.maximumMarks())));
+        SchoolExamSubject examSubject = subjects.findByExam_IdAndSectionSubject_Id(examId, sectionSubject.getId())
+                .orElseGet(() -> subjects.save(new SchoolExamSubject(exam, sectionSubject, request.maximumMarks())));
+        return toSubjectResponse(examSubject);
+    }
+
+    @DeleteMapping("/{examId}/subjects/{subjectId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void deleteSubject(
+            @PathVariable Long examId,
+            @PathVariable Long subjectId) {
+        SchoolExamSubject subject = subjects.findByIdAndExam_Id(subjectId, examId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Exam subject not found."));
+        marks.deleteAllByExamSubject_Id(subjectId);
+        subjects.delete(subject);
     }
 
     @PostMapping("/subjects/{subjectId}/marks")

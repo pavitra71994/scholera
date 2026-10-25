@@ -5,6 +5,7 @@ import type { SchoolPerson } from "../../../types/api";
 import { useAdminSections } from "../../../hooks/useAdminSections";
 import { personClassNames } from "../../../utils/people";
 import { SectionSelect } from "./SectionSelect";
+import { DropdownSelect } from "../../shared/DropdownSelect";
 
 export function PeopleManagement() {
   const { sections, error: sectionError, loading: sectionsLoading } = useAdminSections();
@@ -79,6 +80,10 @@ export function PeopleManagement() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (role === "STUDENT" && sectionId === null) {
+      setError("Choose a section for the student.");
+      return;
+    }
     setSaving(true);
     setError("");
     setMessage("");
@@ -158,12 +163,12 @@ export function PeopleManagement() {
         <label className="module-field">Full name
           <input maxLength={160} onChange={(event) => setFullName(event.target.value)} required value={fullName} />
         </label>
-        <label className="module-field">Account type
-          <select value={role} onChange={(event) => setRole(event.target.value as "TEACHER" | "STUDENT")}>
-            <option value="STUDENT">Student</option>
-            <option value="TEACHER">Teacher</option>
-          </select>
-        </label>
+        <DropdownSelect
+          label="Account type"
+          onChange={(value) => setRole(value as "TEACHER" | "STUDENT")}
+          options={[{ value: "STUDENT", label: "Student" }, { value: "TEACHER", label: "Teacher" }]}
+          value={role}
+        />
         <label className="module-field">Username
           <input autoComplete="off" maxLength={100} onChange={(event) => setUsername(event.target.value)} required value={username} />
         </label>
@@ -227,12 +232,12 @@ export function PeopleManagement() {
             <label className="module-field">Search name or class
               <input onChange={(event) => setDirectorySearch(event.target.value)} placeholder="Search…" value={directorySearch} />
             </label>
-            <label className="module-field">Sort by
-              <select onChange={(event) => setDirectorySort(event.target.value as "name" | "class")} value={directorySort}>
-                <option value="name">Name</option>
-                <option value="class">Class</option>
-              </select>
-            </label>
+            <DropdownSelect
+              label="Sort by"
+              onChange={(value) => setDirectorySort(value as "name" | "class")}
+              options={[{ value: "name", label: "Name" }, { value: "class", label: "Class" }]}
+              value={directorySort}
+            />
           </div>
           {sectionsLoading || loading ? <p className="muted">Loading directory…</p> : directoryGroups.length ? (
             <div className="people-groups">

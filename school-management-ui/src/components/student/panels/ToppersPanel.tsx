@@ -1,22 +1,7 @@
-import { useEffect, useState } from "react";
-import { getStudentToppers } from "../../../services/api";
-import type { StudentLeaderboardEntry, StudentToppers } from "../../../types/api";
-
-type LeaderboardView = "class" | "section" | "subject";
-
-function groupEntries(
-  entries: StudentLeaderboardEntry[],
-  getKey: (entry: StudentLeaderboardEntry) => string,
-) {
-  const groups = new Map<string, StudentLeaderboardEntry[]>();
-  for (const entry of entries) {
-    const key = getKey(entry);
-    const group = groups.get(key);
-    if (group) group.push(entry);
-    else groups.set(key, [entry]);
-  }
-  return [...groups.values()];
-}
+import { useEffect, useMemo, useState } from "react";
+import { getClasses, getStudentToppers } from "../../../services/api";
+import type { SchoolClass, StudentLeaderboardEntry, StudentToppers } from "../../../types/api";
+import { DropdownSelect } from "../../shared/DropdownSelect";
 
 function Leaderboard({
   title,
@@ -25,17 +10,16 @@ function Leaderboard({
 }: {
   title: string;
   subtitle: string;
-  entries: StudentToppers["classToppers"];
+  entries: StudentLeaderboardEntry[];
 }) {
   return (
     <article className="leaderboard">
       <div className="section-heading"><div><h4>{title}</h4><p className="muted">{subtitle}</p></div></div>
       {entries.length ? (
         <ol>{entries.map((entry, index) => (
-          <li className={entry.currentStudent ? "leaderboard-current-student" : undefined} key={`${entry.studentName}-${entry.subject ?? ""}-${index}`}>
+          <li className={entry.currentStudent ? "leaderboard-current-student" : undefined} key={`${entry.studentName}-${index}`}>
             <span className="leaderboard-rank">#{entry.rank}</span>
             <span className="leaderboard-name">{entry.studentName}</span>
-            {entry.subject && <span>{entry.subject}</span>}
             {entry.currentStudent && <span className="leaderboard-you">You</span>}
             <strong>{entry.totalMarks} marks</strong>
           </li>
@@ -46,80 +30,100 @@ function Leaderboard({
 }
 
 export function StudentToppersPanel() {
+  const currentYear = new Date().getFullYear();
   const [toppers, setToppers] = useState<StudentToppers | null>(null);
+  const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [selectedYear, setSelectedYear] = useState(String(currentYear));
+  const [selectedClassId, setSelectedClassId] = useState("");
+  const [selectedSectionId, setSelectedSectionId] = useState("");
   const [error, setError] = useState("");
-  const [view, setView] = useState<LeaderboardView>("class");
 
   useEffect(() => {
     getStudentToppers()
       .then(setToppers)
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Could not load school toppers."));
+
+    getClasses()
+      .then((items) => {
+        setClasses(items);
+        const defaultClass = items.find((item) => item.name.toLowerCase() === "class 1") ?? items[0];
+        if (defaultClass) {
+          setSelectedClassId(String(defaultClass.id));
+          const defaultSection = defaultClass.sections.find((section) => section.name.toLowerCase() === "a")
+            ?? defaultClass.sections[0];
+          setSelectedSectionId(defaultSection ? String(defaultSection.id) : "");
+        }
+      })
+      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Could not load classes."));
   }, []);
 
-  const classGroups = toppers
-    ? groupEntries(toppers.classToppers, (entry) => JSON.stringify([entry.className, entry.academicYear]))
-    : [];
-  const sectionGroups = toppers
-    ? groupEntries(toppers.sectionToppers, (entry) => JSON.stringify([entry.className, entry.sectionName, entry.academicYear]))
-    : [];
-  const subjectGroups = toppers
-    ? groupEntries(toppers.subjectToppers, (entry) => JSON.stringify([entry.className, entry.subject, entry.academicYear]))
-    : [];
-  const groups = view === "class" ? classGroups : view === "section" ? sectionGroups : subjectGroups;
-  const groupTitle = view === "class" ? "Class rankings" : view === "section" ? "Section rankings" : "Subject toppers";
-  const groupSubtitle = view === "class"
-    ? "Class total marks"
-    : view === "section" ? "Section total marks" : "Subject total marks";
+  const selectedClass = classes.find((item) => String(item.id) === selectedClassId);
+  const selectedSection = selectedClass?.sections.find((section) => String(section.id) === selectedSectionId);
+  const years = useMemo(() => {
+    const availableYears = new Set<number>([currentYear]);
+    toppers?.classToppers.forEach((entry) => availableYears.add(entry.academicYear));
+    toppers?.sectionToppers.forEach((entry) => availableYears.add(entry.academicYear));
+    return [...availableYears].sort((a, b) => b - a);
+  }, [currentYear, toppers]);
+
+  const classEntries = toppers?.classToppers.filter((entry) =>
+    entry.academicYear === Number(selectedYear) && entry.className === selectedClass?.name,
+  ) ?? [];
+  const sectionEntries = toppers?.sectionToppers.filter((entry) =>
+    entry.academicYear === Number(selectedYear)
+      && entry.className === selectedClass?.name
+      && entry.sectionName === selectedSection?.name,
+  ) ?? [];
+
+  function changeClass(classId: string) {
+    setSelectedClassId(classId);
+    const nextClass = classes.find((item) => String(item.id) === classId);
+    const defaultSection = nextClass?.sections.find((section) => section.name.toLowerCase() === "a")
+      ?? nextClass?.sections[0];
+    setSelectedSectionId(defaultSection ? String(defaultSection.id) : "");
+  }
 
   return (
     <section className="student-panel">
       <div className="section-heading">
         <div><p className="eyebrow">Celebrating achievement</p><h3>School Toppers</h3></div>
       </div>
-      <p className="muted">Explore ranked student lists by class total, section total, and subject within each class. Tied marks share the same rank.</p>
+      <p className="muted">View class and section rankings for the selected academic year. Tied marks share the same rank.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
+      <div className="toppers-filters">
+        <DropdownSelect
+          label="Academic year"
+          onChange={setSelectedYear}
+          options={years.map((year) => ({ value: String(year), label: String(year) }))}
+          value={selectedYear}
+        />
+        <DropdownSelect
+          label="Class"
+          onChange={changeClass}
+          options={classes.map((schoolClass) => ({ value: String(schoolClass.id), label: schoolClass.name }))}
+          value={selectedClassId}
+        />
+        <DropdownSelect
+          label="Section"
+          disabled={!selectedClass?.sections.length}
+          onChange={setSelectedSectionId}
+          options={(selectedClass?.sections ?? []).map((section) => ({ value: String(section.id), label: section.name }))}
+          value={selectedSectionId}
+        />
+      </div>
       {toppers ? (
-        <>
-          <div className="toppers-summary" aria-label="Leaderboard summary">
-            <div><strong>{classGroups.length}</strong><span>Classes ranked</span></div>
-            <div><strong>{sectionGroups.length}</strong><span>Sections ranked</span></div>
-            <div><strong>{subjectGroups.length}</strong><span>Subject leaderboards</span></div>
-          </div>
-          <div className="toppers-toolbar">
-            <div className="toppers-tabs" aria-label="Leaderboard type">
-              <button aria-pressed={view === "class"} className="quiet-button" onClick={() => setView("class")} type="button">
-                By class <span>{classGroups.length}</span>
-              </button>
-              <button aria-pressed={view === "section"} className="quiet-button" onClick={() => setView("section")} type="button">
-                By section <span>{sectionGroups.length}</span>
-              </button>
-              <button aria-pressed={view === "subject"} className="quiet-button" onClick={() => setView("subject")} type="button">
-                By subject <span>{subjectGroups.length}</span>
-              </button>
-            </div>
-            <p className="muted toppers-view-title">{groupTitle}</p>
-          </div>
-          <div className="leaderboard-grid">
-            {groups.length ? groups.map((entries) => {
-              const { className, sectionName, subject } = entries[0];
-              const title = view === "class"
-                ? `${entries[0].academicYear} · ${className ?? "Class"}`
-                : view === "section"
-                  ? `${entries[0].academicYear} · ${className ?? "Class"} · ${sectionName ?? "Section"}`
-                  : `${entries[0].academicYear} · ${className ?? "Class"} · ${subject ?? "Subject"}`;
-              return (
-                <Leaderboard
-                  entries={entries}
-                  key={`${view}-${JSON.stringify([entries[0].academicYear, className, sectionName, subject])}`}
-                  subtitle={groupSubtitle}
-                  title={title}
-                />
-              );
-            }) : (
-              <p className="student-empty toppers-empty">No marks have been recorded for this leaderboard yet.</p>
-            )}
-          </div>
-        </>
+        <div className="leaderboard-grid toppers-results">
+          <Leaderboard
+            entries={classEntries}
+            subtitle="Total marks across the selected class"
+            title={`${selectedClass?.name ?? "Class"} toppers`}
+          />
+          <Leaderboard
+            entries={sectionEntries}
+            subtitle="Total marks across the selected section"
+            title={`${selectedClass?.name ?? "Class"} · Section ${selectedSection?.name ?? ""} toppers`}
+          />
+        </div>
       ) : !error ? <p className="muted">Loading toppers…</p> : null}
     </section>
   );

@@ -1,4 +1,5 @@
 import type { SchoolSection } from "../../../types/api";
+import { DropdownSelect } from "../../shared/DropdownSelect";
 
 export function SectionSelect({
   sections,
@@ -11,22 +12,16 @@ export function SectionSelect({
   onChange: (id: number | null) => void;
   label?: string;
 }) {
-  return (
-    <label className="module-field">
-      {label}
-      <select
-        aria-label={label}
-        required={sections.length > 0}
-        value={value ?? ""}
-        onChange={(event) => onChange(event.target.value ? Number(event.target.value) : null)}
-      >
-        <option value="">Choose a section</option>
-        {sections.map((section) => (
-          <option key={section.id} value={section.id}>
-            {section.className ? `${section.className} · ` : ""}{section.name}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
+  return <DropdownSelect
+    label={label}
+    onChange={(selected) => onChange(selected ? Number(selected) : null)}
+    options={[
+      { value: "", label: "Choose a section" },
+      ...sections.map((section) => ({
+        value: String(section.id),
+        label: `${section.className ? `${section.className} · ` : ""}${section.name}`,
+      })),
+    ]}
+    value={value === null ? "" : String(value)}
+  />;
 }

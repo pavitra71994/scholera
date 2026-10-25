@@ -105,6 +105,11 @@ export interface StudentExamResult {
   percentage: number;
   sectionRank: number;
   classRank: number;
+  yearTotalMarks: number;
+  yearMaximumMarks: number;
+  yearPercentage: number;
+  yearSectionRank: number;
+  yearClassRank: number;
   subjects: Array<{
     subject: string;
     obtainedMarks: number;

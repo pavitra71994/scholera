@@ -11,6 +11,9 @@ import {
   createExamSubject,
   createSectionSubject,
   createSchoolExamDefinition,
+  deleteExamFromSection,
+  deleteExamSubject,
+  deleteSchoolExamDefinition,
   createPerson,
   createSection,
   deleteSection,
@@ -46,6 +49,9 @@ vi.mock("../services/api", () => ({
   createExamSubject: vi.fn(),
   createSectionSubject: vi.fn(),
   createSchoolExamDefinition: vi.fn(),
+  deleteExamFromSection: vi.fn(),
+  deleteExamSubject: vi.fn(),
+  deleteSchoolExamDefinition: vi.fn(),
   createPerson: vi.fn(),
   createSection: vi.fn(),
   deleteSection: vi.fn(),
@@ -87,6 +93,9 @@ beforeEach(() => {
   vi.mocked(createExamSubject).mockReset();
   vi.mocked(createSectionSubject).mockReset();
   vi.mocked(createSchoolExamDefinition).mockReset();
+  vi.mocked(deleteExamFromSection).mockReset();
+  vi.mocked(deleteExamSubject).mockReset();
+  vi.mocked(deleteSchoolExamDefinition).mockReset();
   vi.mocked(createSection).mockReset();
   vi.mocked(deleteSection).mockReset();
   vi.mocked(getClasses).mockReset();
@@ -116,7 +125,13 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
 });
+
+async function chooseDropdownOption(label: string, option: string) {
+  fireEvent.click(await screen.findByRole("combobox", { name: label }));
+  fireEvent.click(await screen.findByRole("option", { name: option }));
+}
 
 describe("login form", () => {
   it("submits the entered credentials and shows a pending state", async () => {
@@ -216,7 +231,8 @@ describe("people directory", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /teachers/i }));
     expect(await screen.findByText("Mina Teacher")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Class" })).toBeInTheDocument();
+    await chooseDropdownOption("Sort by", "Class");
+    expect(screen.getByRole("combobox", { name: "Sort by" })).toHaveTextContent("Class");
   });
 });
 describe("admin navigation", () => {
@@ -247,28 +263,28 @@ describe("workspace themes", () => {
     const adminView = render(<App />);
     await screen.findByRole("heading", { level: 1, name: "School management" });
     const adminWorkspace = screen.getByRole("main");
-    const themePicker = await screen.findByLabelText("Theme");
+    await screen.findByRole("combobox", { name: "Theme" });
 
     expect(adminWorkspace).toHaveAttribute("data-theme", "forest");
-    fireEvent.change(themePicker, { target: { value: "ocean" } });
+    await chooseDropdownOption("Theme", "Ocean");
     expect(adminWorkspace).toHaveAttribute("data-theme", "ocean");
     expect(localStorage.getItem("scholora.theme.admin")).toBe("ocean");
     adminView.unmount();
 
     const reopenedAdminView = render(<App />);
-    expect(await screen.findByLabelText("Theme")).toHaveValue("ocean");
+    expect(await screen.findByRole("combobox", { name: "Theme" })).toHaveTextContent("Ocean");
     reopenedAdminView.unmount();
 
     vi.mocked(getSession).mockResolvedValue({ username: "learner", role: "STUDENT" });
     render(<App />);
 
-    expect(await screen.findByLabelText("Theme")).toHaveValue("forest");
+    expect(await screen.findByRole("combobox", { name: "Theme" })).toHaveTextContent("Forest");
     expect(screen.getByRole("main")).toHaveAttribute("data-theme", "forest");
   });
 });
 
 describe("admin exam creation", () => {
-  it("adds school-wide exams and section-specific subjects from class cards", async () => {
+  it("selects a class, section, and exam to add/remove subjects and remove the school exam", async () => {
     vi.mocked(getClasses).mockResolvedValue([{
       id: 7,
       name: "Grade 7",
@@ -276,18 +292,34 @@ describe("admin exam creation", () => {
     }]);
     vi.mocked(getPeople).mockResolvedValue([]);
     vi.mocked(getSchoolExamDefinitions).mockResolvedValue([]);
-    vi.mocked(getSectionSubjects).mockResolvedValue([]);
-    vi.mocked(createSectionSubject).mockResolvedValue({
-      id: 59,
+    vi.mocked(getExams).mockResolvedValue([{
+      id: 43,
       sectionId: 41,
+      examDefinitionId: 39,
+      name: "Term 1",
+      academicYear: 2026,
+      subjects: [{
+        id: 51,
+        subject: "Science",
+        maximumMarks: 100,
+        marks: [{ studentId: 7, fullName: "Student One", obtainedMarks: 89 }],
+      }],
+    }]);
+    vi.mocked(createExamSubject).mockResolvedValue({
+      id: 59,
       subject: "Mathematics",
-      defaultMaximumMarks: 100,
+      maximumMarks: 100,
+      marks: [],
     });
     vi.mocked(createSchoolExamDefinition).mockResolvedValue({
       id: 39,
       name: "Term 1",
       academicYear: 2026,
     });
+    vi.mocked(deleteExamSubject).mockResolvedValue();
+    vi.mocked(deleteExamFromSection).mockResolvedValue();
+    vi.mocked(deleteSchoolExamDefinition).mockResolvedValue();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<ExamSetupPanel />);
     fireEvent.change(await screen.findByLabelText("Common exam name"), { target: { value: "Term 1" } });
     fireEvent.click(screen.getByRole("button", { name: "Add common exam" }));
@@ -296,15 +328,29 @@ describe("admin exam creation", () => {
       academicYear: 2026,
     }));
 
-    expect(await screen.findByText("Section A")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /section a/i }));
+    expect(await screen.findByRole("combobox", { name: "Exam" })).toHaveTextContent("2026 · Term 1");
+    expect(screen.getByRole("combobox", { name: "Section" })).toHaveTextContent("A");
+    fireEvent.click(screen.getByRole("combobox", { name: "Exam" }));
+    expect(screen.getByRole("listbox", { name: "Exam" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: "2026 · Term 1" }));
+    expect(screen.queryByRole("listbox", { name: "Exam" })).not.toBeInTheDocument();
+    expect(screen.getByText("Science")).toBeInTheDocument();
     fireEvent.change(await screen.findByLabelText("Subject"), { target: { value: "Mathematics" } });
-    fireEvent.click(screen.getByRole("button", { name: "Add section subject" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add subject to exam" }));
 
-    await waitFor(() => expect(createSectionSubject).toHaveBeenCalledWith(41, {
+    await waitFor(() => expect(createExamSubject).toHaveBeenCalledWith(43, {
       subject: "Mathematics",
       maximumMarks: 100,
     }));
+    expect(await screen.findByText("Mathematics")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Science from Term 1" }));
+    await waitFor(() => expect(deleteExamSubject).toHaveBeenCalledWith(43, 51));
+    fireEvent.click(screen.getByRole("button", { name: "Remove from this section" }));
+    await waitFor(() => expect(deleteExamFromSection).toHaveBeenCalledWith(43));
+    expect(await screen.findByText("Term 1 was removed from section A. It remains available in other sections.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove exam everywhere" }));
+    await waitFor(() => expect(deleteSchoolExamDefinition).toHaveBeenCalledWith(39));
   });
 });
 
@@ -342,6 +388,11 @@ describe("student portal", () => {
       percentage: 90,
       sectionRank: 2,
       classRank: 5,
+      yearTotalMarks: 225,
+      yearMaximumMarks: 250,
+      yearPercentage: 90,
+      yearSectionRank: 2,
+      yearClassRank: 5,
       subjects: [{
         subject: "Mathematics",
         obtainedMarks: 45,
@@ -357,6 +408,11 @@ describe("student portal", () => {
       percentage: 88,
       sectionRank: 1,
       classRank: 2,
+      yearTotalMarks: 88,
+      yearMaximumMarks: 100,
+      yearPercentage: 88,
+      yearSectionRank: 1,
+      yearClassRank: 2,
       subjects: [{
         subject: "Science",
         obtainedMarks: 88,
@@ -377,18 +433,23 @@ describe("student portal", () => {
     });
     vi.mocked(getStudentToppers).mockResolvedValue({
       classToppers: [
-        { studentName: "Taylor Student", className: "Grade 8", sectionName: null, subject: null, academicYear: 2026, totalMarks: 90, rank: 1, currentStudent: true },
-        { studentName: "Alex Student", className: "Grade 8", sectionName: null, subject: null, academicYear: 2026, totalMarks: 80, rank: 2, currentStudent: false },
-        { studentName: "Sam Student", className: "Grade 9", sectionName: null, subject: null, academicYear: 2026, totalMarks: 95, rank: 1, currentStudent: false },
+        { studentName: "Taylor Student", className: "Class 1", sectionName: null, subject: null, academicYear: 2026, totalMarks: 90, rank: 1, currentStudent: true },
+        { studentName: "Alex Student", className: "Class 1", sectionName: null, subject: null, academicYear: 2026, totalMarks: 80, rank: 2, currentStudent: false },
+        { studentName: "Sam Student", className: "Class 2", sectionName: null, subject: null, academicYear: 2026, totalMarks: 95, rank: 1, currentStudent: false },
+        { studentName: "2025 Topper", className: "Class 1", sectionName: null, subject: null, academicYear: 2025, totalMarks: 85, rank: 1, currentStudent: false },
       ],
       sectionToppers: [
-        { studentName: "Taylor Student", className: "Grade 8", sectionName: "A", subject: null, academicYear: 2026, totalMarks: 90, rank: 1, currentStudent: true },
+        { studentName: "Taylor Student", className: "Class 1", sectionName: "A", subject: null, academicYear: 2026, totalMarks: 90, rank: 1, currentStudent: true },
+        { studentName: "Dana Student", className: "Class 1", sectionName: "B", subject: null, academicYear: 2026, totalMarks: 87, rank: 1, currentStudent: false },
+        { studentName: "Sam Student", className: "Class 2", sectionName: "A", subject: null, academicYear: 2026, totalMarks: 95, rank: 1, currentStudent: false },
+        { studentName: "2025 Topper", className: "Class 1", sectionName: "A", subject: null, academicYear: 2025, totalMarks: 85, rank: 1, currentStudent: false },
       ],
-      subjectToppers: [
-        { studentName: "Taylor Student", className: "Grade 8", sectionName: null, subject: "Mathematics", academicYear: 2026, totalMarks: 90, rank: 1, currentStudent: true },
-        { studentName: "Alex Student", className: "Grade 8", sectionName: null, subject: "Science", academicYear: 2026, totalMarks: 80, rank: 1, currentStudent: false },
-      ],
+      subjectToppers: [],
     });
+    vi.mocked(getClasses).mockResolvedValue([
+      { id: 1, name: "Class 1", sections: [{ id: 11, name: "A" }, { id: 12, name: "B" }] },
+      { id: 2, name: "Class 2", sections: [{ id: 21, name: "A" }] },
+    ]);
 
     render(<App />);
     expect(await screen.findByRole("heading", { level: 1, name: "Good day, learner." })).toBeInTheDocument();
@@ -411,12 +472,15 @@ describe("student portal", () => {
 
     fireEvent.click(screen.getByRole("link", { name: /your school life/i }));
     fireEvent.click(await screen.findByRole("link", { name: /open exam results & progress/i }));
-    expect(await screen.findByLabelText("Academic year")).toHaveValue("2026");
-    expect(screen.getByText("Section #2 · Class #5")).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Academic year" })).toHaveTextContent("2026");
+    expect(screen.getByText("225 / 250")).toBeInTheDocument();
+    expect(screen.getByText("#2")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Congratulations!");
+    expect(screen.getByText("Section rank: #2 · Class rank: #5")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Term 1"));
     expect(await screen.findAllByText("45 / 50")).toHaveLength(2);
-    expect(screen.getAllByText("90%")).toHaveLength(2);
-    fireEvent.change(screen.getByLabelText("Academic year"), { target: { value: "2025" } });
+    expect(screen.getAllByText("90%")).toHaveLength(3);
+    await chooseDropdownOption("Academic year", "2025");
     expect(screen.getByText("Annual Exam")).toBeInTheDocument();
     expect(screen.queryByText("Term 1")).not.toBeInTheDocument();
 
@@ -427,21 +491,26 @@ describe("student portal", () => {
 
     fireEvent.click(screen.getByRole("link", { name: /your school life/i }));
     fireEvent.click(await screen.findByRole("link", { name: /open school toppers/i }));
-    expect(await screen.findByText("Taylor Student")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "2026 · Grade 8" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "2026 · Grade 9" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /by class/i })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("Classes ranked")).toBeInTheDocument();
-    expect(screen.getAllByText("You")).toHaveLength(1);
-    expect(screen.getByText("Taylor Student").closest("li")).toHaveClass("leaderboard-current-student");
-    fireEvent.click(screen.getByRole("button", { name: /by section/i }));
-    expect(screen.getByRole("heading", { name: "2026 · Grade 8 · A" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /by section/i })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("Taylor Student").closest("li")).toHaveClass("leaderboard-current-student");
-    fireEvent.click(screen.getByRole("button", { name: /by subject/i }));
-    expect(screen.getByRole("heading", { name: "2026 · Grade 8 · Mathematics" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "2026 · Grade 8 · Science" })).toBeInTheDocument();
-    expect(screen.getByText("Taylor Student").closest("li")).toHaveClass("leaderboard-current-student");
+    expect(await screen.findAllByText("Taylor Student")).toHaveLength(2);
+    expect(screen.getByRole("combobox", { name: "Academic year" })).toHaveTextContent("2026");
+    expect(screen.getByRole("combobox", { name: "Class" })).toHaveTextContent("Class 1");
+    expect(screen.getByRole("combobox", { name: "Section" })).toHaveTextContent("A");
+    expect(screen.getByRole("heading", { name: "Class 1 toppers" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Class 1 · Section A toppers" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /by subject/i })).not.toBeInTheDocument();
+    expect(screen.getAllByText("You")).toHaveLength(2);
+    expect(screen.getAllByText("Taylor Student").every((name) =>
+      name.closest("li")?.classList.contains("leaderboard-current-student"),
+    )).toBe(true);
+    await chooseDropdownOption("Section", "B");
+    expect(screen.getByRole("heading", { name: "Class 1 · Section B toppers" })).toBeInTheDocument();
+    expect(screen.getByText("Dana Student")).toBeInTheDocument();
+    await chooseDropdownOption("Class", "Class 2");
+    expect(screen.getByRole("combobox", { name: "Section" })).toHaveTextContent("A");
+    expect(screen.getByRole("heading", { name: "Class 2 · Section A toppers" })).toBeInTheDocument();
+    expect(screen.getAllByText("Sam Student")).toHaveLength(2);
+    await chooseDropdownOption("Academic year", "2025");
+    expect(screen.getAllByText("No marks have been recorded for this group yet.")).toHaveLength(2);
   });
 });
 
@@ -463,6 +532,7 @@ describe("admin and teacher topper dashboards", () => {
       sectionToppers: [],
       subjectToppers: [],
     });
+    vi.mocked(getClasses).mockResolvedValue([]);
 
     render(<App />);
     const topperCard = await screen.findByRole("link", { name: /open school toppers/i });
@@ -482,7 +552,7 @@ describe("teacher portal", () => {
   };
   const roster = [{ id: 44, fullName: "Alex Learner", rollNumber: 4 }];
 
-  it("opens the five teacher tools and edits only teacher profile fields", async () => {
+  it("opens teacher tools without exam setup and edits only teacher profile fields", async () => {
     vi.mocked(getSession).mockResolvedValue({ username: "jordan", role: "TEACHER" });
     vi.mocked(getHealth).mockResolvedValue(true);
     vi.mocked(getTeacherProfile).mockResolvedValue(profile);
@@ -494,7 +564,7 @@ describe("teacher portal", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Good day, Jordan Teacher." })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /open my classes & roster/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /open take attendance/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /open exam setup/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /open exam setup/i })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /open marks register/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /open class progress/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /open my profile/i })).toBeInTheDocument();
@@ -557,7 +627,7 @@ describe("teacher portal", () => {
 
     render(<App />);
     fireEvent.click(await screen.findByRole("link", { name: /open take attendance/i }));
-    fireEvent.change(await screen.findByLabelText("Attendance for Alex Learner"), { target: { value: "PRESENT" } });
+    await chooseDropdownOption("Attendance for Alex Learner", "Present");
     fireEvent.click(screen.getByRole("button", { name: "Save attendance" }));
     await waitFor(() => expect(saveAttendance).toHaveBeenCalledWith(31, expect.any(String), [
       { studentId: 44, status: "PRESENT" },
@@ -565,7 +635,7 @@ describe("teacher portal", () => {
 
     fireEvent.click(screen.getByRole("link", { name: /teaching workspace/i }));
     fireEvent.click(await screen.findByRole("link", { name: /open marks register/i }));
-    expect(await screen.findByRole("option", { name: "Science · 40 marks" })).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Subject" })).toHaveTextContent("Science · 40 marks");
     fireEvent.change(screen.getByLabelText("Marks for Alex Learner"), { target: { value: "35" } });
     fireEvent.click(screen.getByRole("button", { name: "Save marks" }));
     await waitFor(() => expect(saveExamMarks).toHaveBeenCalledWith(521, [
@@ -599,7 +669,7 @@ describe("student enrollment form", () => {
     expect(screen.getByLabelText("Mother’s name")).toBeRequired();
     expect(screen.getByLabelText("Father’s name")).toBeRequired();
     expect(screen.getByLabelText(/Emergency contact/)).not.toBeRequired();
-    fireEvent.change(screen.getByLabelText("Account type"), { target: { value: "TEACHER" } });
+    await chooseDropdownOption("Account type", "Teacher");
     expect(screen.queryByLabelText("Date of birth")).not.toBeInTheDocument();
   });
 });
@@ -625,7 +695,8 @@ describe("teacher section assignment form", () => {
     });
 
     render(<PeopleManagement />);
-    fireEvent.change(await screen.findByLabelText("Account type"), { target: { value: "TEACHER" } });
+    await screen.findByRole("combobox", { name: "Account type" });
+    await chooseDropdownOption("Account type", "Teacher");
     fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "New Teacher" } });
     fireEvent.change(screen.getByLabelText("Username"), { target: { value: "new-teacher" } });
     const passwordInput = screen.getByLabelText("Initial password");
