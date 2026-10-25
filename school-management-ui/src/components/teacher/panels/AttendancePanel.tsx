@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { getAttendance, getAttendanceHistory, saveAttendance } from "../../../services/api";
 import type { AttendanceStatus } from "../../../types/api";
@@ -10,6 +10,10 @@ import { DropdownSelect } from "../../shared/DropdownSelect";
 
 export function TeacherAttendancePage() {
   const { sections, loading: sectionsLoading, error: sectionsError } = useTeacherSections();
+  const attendanceSections = useMemo(
+    () => sections.filter((section) => section.fullSectionAccess),
+    [sections],
+  );
   const [sectionId, setSectionId] = useState<number | null>(null);
   const [date, setDate] = useState(localDate);
   const [students, setStudents] = useState<Array<{ studentId: number; fullName: string; status: AttendanceStatus | null }> | null>(null);
@@ -20,9 +24,14 @@ export function TeacherAttendancePage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!sections.length) return;
-    setSectionId((selected) => selected && sections.some((section) => section.id === selected) ? selected : sections[0].id);
-  }, [sections]);
+    if (!attendanceSections.length) {
+      setSectionId(null);
+      return;
+    }
+    setSectionId((selected) => selected && attendanceSections.some((section) => section.id === selected)
+      ? selected
+      : attendanceSections[0].id);
+  }, [attendanceSections]);
 
   useEffect(() => {
     if (sectionId == null) {
@@ -74,11 +83,15 @@ export function TeacherAttendancePage() {
     <section className="teacher-panel">
       <div className="section-heading"><div><p className="eyebrow">Daily register</p><h3>Take Attendance</h3></div></div>
       <p className="muted">Record and update attendance for every student in an assigned section.</p>
-      <SectionEmptyState error={sectionsError} loading={sectionsLoading} sections={sections} />
-      {!sectionsLoading && !sectionsError && sections.length > 0 && (
+      {(!sections.length || attendanceSections.length > 0)
+        && <SectionEmptyState error={sectionsError} loading={sectionsLoading} sections={attendanceSections} />}
+      {!sectionsLoading && !sectionsError && sections.length > 0 && !attendanceSections.length && (
+        <p className="class-empty">Attendance is available only to class teachers and teachers assigned to the full section.</p>
+      )}
+      {!sectionsLoading && !sectionsError && attendanceSections.length > 0 && (
         <>
           <div className="teacher-toolbar">
-            <SectionPicker onChange={setSectionId} sections={sections} selected={sectionId} />
+            <SectionPicker onChange={setSectionId} sections={attendanceSections} selected={sectionId} />
             <label className="module-field">Date
               <input onChange={(event) => setDate(event.target.value)} required type="date" value={date} />
             </label>

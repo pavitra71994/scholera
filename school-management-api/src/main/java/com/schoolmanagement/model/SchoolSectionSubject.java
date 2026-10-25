@@ -26,6 +26,10 @@ public class SchoolSectionSubject {
     @JoinColumn(name = "section_id", nullable = false)
     private SchoolSection section;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "teacher_id")
+    private SchoolPerson teacher;
+
     @Column(nullable = false, length = 100)
     private String subject;
 
@@ -47,6 +51,14 @@ public class SchoolSectionSubject {
 
     public SchoolSection getSection() {
         return section;
+    }
+
+    public SchoolPerson getTeacher() {
+        return teacher;
+    }
+
+    public void assignTeacher(SchoolPerson teacher) {
+        this.teacher = teacher;
     }
 
     public String getSubject() {

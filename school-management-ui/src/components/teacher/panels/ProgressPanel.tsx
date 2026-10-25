@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getTeacherProgress } from "../../../services/api";
 import type { TeacherStudentProgress } from "../../../types/api";
 import { useTeacherSections } from "../../../hooks/useTeacherSections";
@@ -6,14 +6,23 @@ import { SectionEmptyState, SectionPicker } from "./SectionPicker";
 
 export function TeacherProgressPage() {
   const { sections, loading: sectionsLoading, error: sectionsError } = useTeacherSections();
+  const fullSections = useMemo(
+    () => sections.filter((section) => section.fullSectionAccess),
+    [sections],
+  );
   const [sectionId, setSectionId] = useState<number | null>(null);
   const [students, setStudents] = useState<TeacherStudentProgress[] | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!sections.length) return;
-    setSectionId((selected) => selected && sections.some((section) => section.id === selected) ? selected : sections[0].id);
-  }, [sections]);
+    if (!fullSections.length) {
+      setSectionId(null);
+      return;
+    }
+    setSectionId((selected) => selected && fullSections.some((section) => section.id === selected)
+      ? selected
+      : fullSections[0].id);
+  }, [fullSections]);
 
   useEffect(() => {
     if (sectionId == null) {
@@ -30,11 +39,15 @@ export function TeacherProgressPage() {
   return (
     <section className="teacher-panel">
       <div className="section-heading"><div><p className="eyebrow">Class overview</p><h3>Class Progress</h3></div></div>
-      <p className="muted">Attendance percentages use recorded entries only; missing dates are not counted as absences.</p>
-      <SectionEmptyState error={sectionsError} loading={sectionsLoading} sections={sections} />
-      {!sectionsLoading && !sectionsError && sections.length > 0 && (
+      <p className="muted">Attendance percentages use recorded entries; leave days are excluded.</p>
+      {(!sections.length || fullSections.length > 0)
+        && <SectionEmptyState error={sectionsError} loading={sectionsLoading} sections={fullSections} />}
+      {!sectionsLoading && !sectionsError && sections.length > 0 && !fullSections.length && (
+        <p className="class-empty">Class progress is available only to class teachers and teachers assigned to the full section.</p>
+      )}
+      {!sectionsLoading && !sectionsError && fullSections.length > 0 && (
         <>
-          <SectionPicker onChange={setSectionId} sections={sections} selected={sectionId} />
+          <SectionPicker onChange={setSectionId} sections={fullSections} selected={sectionId} />
           {error && <p className="form-error" role="alert">{error}</p>}
           {!students && !error ? <p className="muted">Loading progress…</p> : students?.length ? (
             <div className="teacher-progress-list">
@@ -44,7 +57,7 @@ export function TeacherProgressPage() {
                     <h4>{student.studentName}</h4>
                     <span className="status-pill">
                       Attendance {student.recordedAttendance
-                        ? `${student.attendancePercentage}% (${student.recordedAttendance} recorded)`
+                        ? `${student.attendancePercentage}% (${student.recordedAttendance} recorded${student.leaveCount ? ` · ${student.leaveCount} leave excluded` : ""})`
                         : "— (no records)"}
                     </span>
                   </div>

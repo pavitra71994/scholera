@@ -168,15 +168,17 @@ public class StudentPortalController {
         long present = records.stream().filter(row -> row.getStatus() == AttendanceStatus.PRESENT).count();
         long absent = records.stream().filter(row -> row.getStatus() == AttendanceStatus.ABSENT).count();
         long late = records.stream().filter(row -> row.getStatus() == AttendanceStatus.LATE).count();
-        BigDecimal percentage = records.isEmpty()
+        long leave = records.stream().filter(row -> row.getStatus() == AttendanceStatus.LEAVE).count();
+        long eligibleDays = records.size() - leave;
+        BigDecimal percentage = eligibleDays == 0
                 ? BigDecimal.ZERO.setScale(2)
                 : BigDecimal.valueOf(present + late)
                         .multiply(BigDecimal.valueOf(100))
-                        .divide(BigDecimal.valueOf(records.size()), 2, RoundingMode.HALF_UP);
+                        .divide(BigDecimal.valueOf(eligibleDays), 2, RoundingMode.HALF_UP);
         List<AttendanceHistoryEntry> history = records.stream()
                 .map(row -> new AttendanceHistoryEntry(row.getAttendanceDate(), row.getStatus()))
                 .toList();
-        return new AttendanceHistoryResponse(present, absent, late, records.size(), percentage, history);
+        return new AttendanceHistoryResponse(present, absent, late, leave, records.size(), percentage, history);
     }
 
     @GetMapping("/toppers")
@@ -218,6 +220,7 @@ public class StudentPortalController {
         SchoolClass schoolClass = section == null ? null : section.getSchoolClass();
         return new StudentProfileResponse(
                 student.getFullName(),
+                student.getAccount().getUsername(),
                 student.getDateOfBirth(),
                 student.getMotherName(),
                 student.getFatherName(),
@@ -320,6 +323,7 @@ public class StudentPortalController {
 
     public record StudentProfileResponse(
             String displayName,
+            String username,
             LocalDate dateOfBirth,
             String motherName,
             String fatherName,
@@ -383,6 +387,7 @@ public class StudentPortalController {
             long presentCount,
             long absentCount,
             long lateCount,
+            long leaveCount,
             long recordedDays,
             BigDecimal attendancePercentage,
             List<AttendanceHistoryEntry> history) {

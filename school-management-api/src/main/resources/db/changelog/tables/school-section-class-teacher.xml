@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="017-add-school-section-class-teacher" author="scholora">
+        <addColumn tableName="school_section">
+            <column name="class_teacher_id" type="BIGINT"/>
+        </addColumn>
+        <sql>
+            UPDATE school_section
+            SET class_teacher_id = (
+                SELECT school_class.class_teacher_id
+                FROM school_class
+                WHERE school_class.id = school_section.class_id
+            )
+            WHERE class_teacher_id IS NULL
+        </sql>
+        <sql>ALTER TABLE school_class DROP CONSTRAINT fk_school_class_class_teacher</sql>
+        <sql>ALTER TABLE school_class DROP COLUMN class_teacher_id</sql>
+        <addForeignKeyConstraint baseTableName="school_section"
+                                 baseColumnNames="class_teacher_id"
+                                 constraintName="fk_school_section_class_teacher"
+                                 referencedTableName="school_person"
+                                 referencedColumnNames="id"/>
+    </changeSet>
+</databaseChangeLog>

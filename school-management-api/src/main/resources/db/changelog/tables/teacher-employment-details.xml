@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="014-add-teacher-employment-details" author="scholora">
+        <addColumn tableName="school_person">
+            <column name="teacher_salary" type="NUMERIC(10, 2)"/>
+            <column name="teacher_degree" type="VARCHAR(160)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

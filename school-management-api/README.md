@@ -18,26 +18,37 @@ export APP_BOOTSTRAP_ADMIN_PASSWORD='admin'
 ./mvnw spring-boot:run
 ```
 
-The app listens on port `8080` by default. Configure `SERVER_PORT` to use a different port. Spring Boot DevTools restarts the API when the running classpath changes. In VS Code, enable Java project auto-build so saved Java changes are compiled and trigger a restart. DevTools is development-only and is not included as a transitive dependency for consumers. The bootstrap operation inserts the admin only if the username does not already exist; it does not reset an existing account's password. H2 is in-memory, so its application data is lost when the API process stops.
+The app listens on port `8080` by default. Configure `SERVER_PORT` to use a different port. Spring Boot DevTools restarts the API when the running classpath changes. In VS Code, enable Java project auto-build so saved Java changes are compiled and trigger a restart. DevTools is development-only and is not included as a transitive dependency for consumers. The bootstrap operation creates the configured administrator only when no administrator exists; it does not reset an existing account's password or recreate a renamed bootstrap account. H2 is in-memory, so its application data is lost when the API process stops.
 
 The sample bootstrap password `admin` is for local development only. Choose a strong secret for any shared or production environment. Account passwords must be non-empty but can be any length; new passwords are pre-hashed before BCrypt so they are not limited by BCrypt's input length. Existing BCrypt password hashes continue to work.
 
-### Optional demo school data
+### Full Indian school demo dataset
 
-To seed a fresh database with one bootstrap admin, Classes 1–5, sections A/B/C, 10 students per section, 10 days of randomized attendance, five exams, five subjects per section, and randomized marks, enable the demo seeder before the first API start:
+Run the one-time seed command from any directory:
 
 ```sh
-export APP_BOOTSTRAP_ADMIN_USERNAME=admin
-export APP_BOOTSTRAP_ADMIN_PASSWORD='admin'
-export APP_DEMO_DATA_ENABLED=true
-read -s "APP_DEMO_STUDENT_PASSWORD?Shared demo student password: "
-export APP_DEMO_STUDENT_PASSWORD
-./mvnw spring-boot:run
+./school-management-api/scripts/seed-school-demo.sh
 ```
 
-For PostgreSQL instead of the default in-memory H2 database, start with `./mvnw spring-boot:run -Dspring-boot.run.profiles=postgres` after setting `DATABASE_PASSWORD`.
+Set `APP_BOOTSTRAP_ADMIN_USERNAME` and `APP_BOOTSTRAP_ADMIN_PASSWORD` before running if the demo database should also receive an administrator account.
 
-Student usernames follow `demo-class-<class>-<section>-student-<roll>` (for example, `demo-class-1-a-student-01`). The configured student password is shared across the seeded student accounts and is never stored in the changelog. Demo seeding is disabled by default, only runs when no classes exist, and is safe to rerun after a successful seed. Use it only with a fresh local/test database, not production.
+It uses the dedicated `demo-seed` profile and connects to PostgreSQL using `DATABASE_URL`, `DATABASE_USER`, and `DATABASE_PASSWORD` (defaults match the local PostgreSQL development profile). The seed command is explicit and inserts demo records into the selected database; verify the connection target before running it. It does not run automatically during normal application startup.
+
+The seed creates Classes 1–12, sections A/B/C, exactly 50 generated teacher accounts, 40–50 students per section, section-level class teachers, subject-expert assignments, four exams for the configured academic year, realistic weekday attendance (including Leave), and marks with a small fail-score distribution. Class 11 and 12 subjects follow science, commerce, and humanities section groupings. Data generation is deterministic and the command can be safely rerun: existing records are retained, missing records are added, and username or data conflicts are reported rather than overwritten.
+
+Generated teacher and student usernames are their lowercase, space-free `first + middle + surname`; each initial password is the same generated string and is stored only as a password hash. These predictable credentials are for isolated demonstrations only. The command prints a report with dataset totals and newly created attendance/mark records.
+
+Configure generation with command-line or environment-backed Spring properties:
+
+| Property | Default | Purpose |
+|---|---:|---|
+| `app.demo-data.academic-year` | Current year | Academic year used for the four demo exams |
+| `app.demo-data.attendance.days` | `30` | Number of recent school days when no explicit start date is set (1–366) |
+| `app.demo-data.attendance.start-date` | empty | Include school days from this ISO date through the end date |
+| `app.demo-data.attendance.end-date` | Today | End date when a start date is configured |
+| `app.demo-data.attendance.school-holidays` | empty | Comma-separated ISO dates excluded from attendance |
+
+The older `APP_DEMO_DATA_ENABLED` startup seeder remains a separate small legacy sample-data option and does not produce the full dataset.
 
 ## Run with PostgreSQL
 
@@ -62,8 +73,9 @@ The API restarts on saved Java changes when IDE auto-build is enabled. This uses
 | `FRONTEND_ORIGIN` | `http://localhost:5173` | Allowed credentialed CORS origin |
 | `APP_BOOTSTRAP_ADMIN_USERNAME` | empty | Optional initial administrator username |
 | `APP_BOOTSTRAP_ADMIN_PASSWORD` | empty | Optional initial administrator password; must be non-empty |
-| `APP_DEMO_DATA_ENABLED` | `false` | Seed sample classes, students, attendance, exams, and marks on a fresh database |
-| `APP_DEMO_STUDENT_PASSWORD` | empty | Shared password required for sample student accounts when demo seeding is enabled |
+| `APP_DEMO_DATA_ENABLED` | `false` | Enable the legacy small sample seeder on a fresh database; not used by the full-seed script |
+| `APP_DEMO_STUDENT_PASSWORD` | empty | Shared password required by the separate legacy small sample seeder |
+| `DATABASE_URL` | `jdbc:postgresql://localhost:5434/school_management` | PostgreSQL JDBC URL for the full demo seeder and PostgreSQL profile |
 | `DATABASE_URL` | `jdbc:postgresql://localhost:5434/school_management` | PostgreSQL JDBC URL in the `postgres` profile |
 | `DATABASE_USER` | `postgres` | PostgreSQL username in the `postgres` profile |
 | `DATABASE_PASSWORD` | required | PostgreSQL password in the `postgres` profile and compose |
@@ -114,8 +126,11 @@ The UI keeps the session cookie by sending credentialed requests. For manual API
 | Method | Path | Access | Purpose |
 |---|---|---|---|
 | `GET` | `/classes` | Authenticated | List classes and nested sections |
+| `GET` | `/classes/{classId}/directory` | Admin | View section rosters and teacher assignments |
 | `POST` | `/classes` | Admin | Create a class |
 | `POST` | `/classes/{classId}/sections` | Admin | Add a section to a class |
+| `PUT` | `/classes/{classId}/sections/{sectionId}/class-teacher` | Admin | Assign or remove the class teacher for one section |
+| `PUT` | `/classes/{classId}/sections/{sectionId}/subjects/{subjectId}/teacher` | Admin | Assign or remove an eligible subject teacher |
 | `DELETE` | `/classes/{classId}/sections/{sectionId}` | Admin | Remove a section; returns `204` |
 
 Create requests:
@@ -129,6 +144,7 @@ Create requests:
 ```
 
 Class names are unique without regard to case. Section names are unique within their class, without regard to case. The list response contains class `id`, `name`, and a `sections` array with section `id` and `name`.
+Each section has an independently assigned class teacher; the class teacher has full access to that assigned section only. A subject teacher can be selected only when their expertise includes that subject.
 
 ### Students and teachers
 
@@ -136,6 +152,8 @@ Class names are unique without regard to case. Section names are unique within t
 |---|---|---|---|
 | `GET` | `/people?role=STUDENT` | Admin | List students |
 | `GET` | `/people?role=TEACHER` | Admin | List teachers |
+| `GET` | `/people/accounts` | Admin | List administrator, teacher, and student login accounts |
+| `PATCH` | `/people/accounts/{accountId}/credentials` | Admin | Change any account's username and/or password |
 | `POST` | `/people` | Admin | Create a student or teacher account |
 
 Student request:
@@ -164,6 +182,12 @@ Teacher request:
 
 Passwords can be any non-empty length. Usernames must be unique, and only `STUDENT` and `TEACHER` roles can be created through this endpoint. A student must be assigned to an existing section; a teacher has no student section assignment. The response includes the person's ID, full name, username, role, and (for students) section and class details.
 
+Signed-in users can update their own credentials using `PATCH /account/credentials`. Teachers and students can only change their own credentials; administrators can manage every account through the admin endpoints above. The JSON body requires a username and accepts an optional non-empty `newPassword`; omit it or send `null` to keep the current password. Current-password verification is not required. Credential updates do not end the active session.
+
+```json
+{"username":"jordan.lee","newPassword":"a-new-password"}
+```
+
 ### Attendance
 
 | Method | Path | Access | Purpose |
@@ -183,7 +207,7 @@ Passwords can be any non-empty length. Usernames must be unique, and only `STUDE
 }
 ```
 
-Each student can have one status per date: `PRESENT`, `ABSENT`, or `LATE`. Submit one record for every student currently assigned to the selected section, without duplicates. GET returns students even when there is no saved record yet; their `status` is `null` until attendance is recorded.
+Each student can have one status per date: `PRESENT`, `ABSENT`, `LATE`, or `LEAVE`. Leave is excluded from attendance-percentage denominators; `recordedDays` still includes all statuses. Submit one record for every student currently assigned to the selected section, without duplicates. GET returns students even when there is no saved record yet; their `status` is `null` until attendance is recorded.
 
 ### Exams and marks
 

@@ -1,13 +1,25 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { createClass, createSection, deleteSection, getClassDirectory, getClasses } from "../../../services/api";
-import type { ClassDirectory, SchoolClass } from "../../../types/api";
+import {
+  assignClassTeacher,
+  assignSubjectTeacher,
+  createClass,
+  createSection,
+  deleteSection,
+  getClassDirectory,
+  getClasses,
+  getPeople,
+} from "../../../services/api";
+import type { ClassDirectory, SchoolClass, SchoolPerson } from "../../../types/api";
+import { DropdownSelect } from "../../shared/DropdownSelect";
 
 export function ClassesPanel() {
 
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [openClassId, setOpenClassId] = useState<number | null>(null);
   const [classDirectories, setClassDirectories] = useState<Record<number, ClassDirectory>>({});
+  const [teachers, setTeachers] = useState<SchoolPerson[]>([]);
+  const [classTeacherSelections, setClassTeacherSelections] = useState<Record<number, string>>({});
   const [directoryLoading, setDirectoryLoading] = useState<number | null>(null);
   const [directoryErrors, setDirectoryErrors] = useState<Record<number, string>>({});
   const [className, setClassName] = useState("");
@@ -22,8 +34,11 @@ export function ClassesPanel() {
   }
 
   useEffect(() => {
-    getClasses()
-      .then(setClasses)
+    Promise.all([getClasses(), getPeople("TEACHER")])
+      .then(([classList, teacherList]) => {
+        setClasses(classList);
+        setTeachers(teacherList);
+      })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Could not load classes."))
       .finally(() => setLoading(false));
   }, []);
@@ -91,6 +106,13 @@ export function ClassesPanel() {
     try {
       const directory = await getClassDirectory(schoolClass.id);
       setClassDirectories((current) => ({ ...current, [schoolClass.id]: directory }));
+      setClassTeacherSelections((current) => {
+        const next = { ...current };
+        directory.sections.forEach((section) => {
+          next[section.id] = section.classTeacher ? String(section.classTeacher.id) : "";
+        });
+        return next;
+      });
     } catch (cause) {
       setDirectoryErrors((current) => ({
         ...current,
@@ -98,6 +120,44 @@ export function ClassesPanel() {
       }));
     } finally {
       setDirectoryLoading(null);
+    }
+  }
+
+  async function saveClassTeacher(schoolClass: SchoolClass, sectionId: number) {
+    const selectedId = classTeacherSelections[sectionId] ?? "";
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await assignClassTeacher(schoolClass.id, sectionId, selectedId ? Number(selectedId) : null);
+      const directory = await getClassDirectory(schoolClass.id);
+      setClassDirectories((current) => ({ ...current, [schoolClass.id]: directory }));
+      setMessage(`Class teacher updated for ${schoolClass.name}.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not assign the class teacher.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveSubjectTeacher(
+    schoolClass: SchoolClass,
+    sectionId: number,
+    subjectId: number,
+    teacherId: string,
+  ) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await assignSubjectTeacher(schoolClass.id, sectionId, subjectId, teacherId ? Number(teacherId) : null);
+      const directory = await getClassDirectory(schoolClass.id);
+      setClassDirectories((current) => ({ ...current, [schoolClass.id]: directory }));
+      setMessage("Subject teacher updated.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not assign the subject teacher.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -158,6 +218,27 @@ export function ClassesPanel() {
                   {classDirectories[schoolClass.id]?.sections.map((section) => (
                     <section className="class-directory-section" key={section.id}>
                       <h5>{schoolClass.name} · {section.name}</h5>
+                      <div className="class-teacher-assignment">
+                        <DropdownSelect
+                          label={`Class teacher for ${schoolClass.name} ${section.name}`}
+                          onChange={(value) => setClassTeacherSelections((current) => ({
+                            ...current,
+                            [section.id]: value,
+                          }))}
+                          options={[
+                            { value: "", label: "Unassigned" },
+                            ...teachers.map((teacher) => ({ value: String(teacher.id), label: teacher.fullName })),
+                          ]}
+                          value={classTeacherSelections[section.id] ?? ""}
+                        />
+                        <button
+                          className="quiet-button"
+                          disabled={busy}
+                          onClick={() => void saveClassTeacher(schoolClass, section.id)}
+                          type="button"
+                        >Save class teacher</button>
+                        <p className="muted">The class teacher can access this section.</p>
+                      </div>
                       <div className="class-directory-columns">
                         <div>
                           <h6>Students</h6>
@@ -175,6 +256,39 @@ export function ClassesPanel() {
                             ))}</ul>
                           ) : <p className="class-empty">No teachers assigned to this section.</p>}
                         </div>
+                      </div>
+                      <div className="class-subject-teachers">
+                        <h6>Subject teachers</h6>
+                        {section.subjects.length ? (
+                          <ul className="directory-list">{section.subjects.map((subject) => {
+                            const experts = teachers.filter((teacher) =>
+                              teacher.subjectExpertise?.some((expertise) => expertise.toLocaleLowerCase() === subject.subject.toLocaleLowerCase()),
+                            );
+                            return (
+                              <li className="class-subject-teacher" key={subject.id}>
+                                <span>{subject.subject}</span>
+                                <DropdownSelect
+                                  disabled={!experts.length || busy}
+                                  hideLabel
+                                  label={`Teacher for ${schoolClass.name} ${section.name} ${subject.subject}`}
+                                  onChange={(teacherId) => void saveSubjectTeacher(
+                                    schoolClass,
+                                    section.id,
+                                    subject.id,
+                                    teacherId,
+                                  )}
+                                  options={[
+                                    { value: "", label: "Unassigned" },
+                                    ...experts.map((teacher) => ({ value: String(teacher.id), label: teacher.fullName })),
+                                  ]}
+                                  value={subject.teacher ? String(subject.teacher.id) : ""}
+                                  wrapperClassName="class-subject-teacher-select"
+                                />
+                                {!experts.length && <small>No teacher has matching subject expertise.</small>}
+                              </li>
+                            );
+                          })}</ul>
+                        ) : <p className="class-empty">Add subjects in Exam Setup before assigning subject teachers.</p>}
                       </div>
                     </section>
                   ))}

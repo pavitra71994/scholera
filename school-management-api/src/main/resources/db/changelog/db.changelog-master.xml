@@ -17,4 +17,10 @@
     <include file="db/changelog/tables/school-section-subject.xml"/>
     <include file="db/changelog/tables/school-exam-subject.xml"/>
     <include file="db/changelog/tables/exam-mark.xml"/>
+    <include file="db/changelog/tables/school-class-teacher.xml"/>
+    <include file="db/changelog/tables/teacher-employment-details.xml"/>
+    <include file="db/changelog/tables/teacher-subject-expertise.xml"/>
+    <include file="db/changelog/tables/school-section-subject-teacher.xml"/>
+    <include file="db/changelog/tables/school-section-class-teacher.xml"/>
+    <include file="db/changelog/tables/attendance-leave-status.xml"/>
 </databaseChangeLog>

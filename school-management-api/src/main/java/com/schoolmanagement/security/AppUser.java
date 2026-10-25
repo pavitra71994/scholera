@@ -52,6 +52,13 @@ public class AppUser implements UserDetails {
         return role;
     }
 
+    public void updateCredentials(String username, String password) {
+        this.username = username;
+        if (password != null) {
+            this.password = password;
+        }
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));

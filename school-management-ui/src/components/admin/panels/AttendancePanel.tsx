@@ -69,7 +69,7 @@ export function AttendanceManagement() {
         <div><p className="eyebrow">Daily register</p><h3>Attendance</h3></div>
         <span className="status-pill">{students.length} students</span>
       </div>
-      <p className="muted">Choose a section and date, then record each student as present, absent, or late.</p>
+      <p className="muted">Choose a section and date, then record each student as present, absent, late, or on leave.</p>
       <div className="module-toolbar">
         <SectionSelect sections={sections} value={sectionId} onChange={setSectionId} />
         <label className="module-field">Date

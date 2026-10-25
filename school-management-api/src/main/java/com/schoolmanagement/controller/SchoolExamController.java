@@ -73,7 +73,7 @@ public class SchoolExamController {
     public List<ExamResponse> getExams(Authentication authentication, @RequestParam Long sectionId) {
         requireSectionAccess(sectionId, authentication);
         return exams.findAllBySection_IdOrderByAcademicYearDescNameAsc(sectionId).stream()
-                .map(this::toResponse)
+                .map(exam -> toResponse(exam, authentication))
                 .toList();
     }
 
@@ -134,12 +134,12 @@ public class SchoolExamController {
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
     public ExamResponse createExam(Authentication authentication, @Valid @RequestBody CreateExamRequest request) {
-        requireSectionAccess(request.sectionId(), authentication);
+        requireFullSectionAccess(request.sectionId(), authentication);
         SchoolSection section = sections.findById(request.sectionId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Section not found."));
         SchoolExamDefinition definition = definitions.findById(request.examDefinitionId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "School exam not found."));
-        return toResponse(examProvisioning.provisionExam(section, definition));
+        return toResponse(examProvisioning.provisionExam(section, definition), authentication);
     }
 
     @GetMapping("/sections/{sectionId}/subjects")
@@ -148,6 +148,7 @@ public class SchoolExamController {
             Authentication authentication, @PathVariable Long sectionId) {
         requireSectionAccess(sectionId, authentication);
         return sectionSubjects.findAllBySection_IdOrderBySubjectAsc(sectionId).stream()
+                .filter(subject -> canAccessSubject(subject, authentication))
                 .map(this::toSectionSubjectResponse)
                 .toList();
     }
@@ -159,7 +160,7 @@ public class SchoolExamController {
             Authentication authentication,
             @PathVariable Long sectionId,
             @Valid @RequestBody CreateExamSubjectRequest request) {
-        requireSectionAccess(sectionId, authentication);
+        requireFullSectionAccess(sectionId, authentication);
         String subjectName = request.subject().trim();
         if (sectionSubjects.existsBySection_IdAndSubjectIgnoreCase(sectionId, subjectName)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This subject already exists for the section.");
@@ -182,7 +183,7 @@ public class SchoolExamController {
             @Valid @RequestBody CreateExamSubjectRequest request) {
         SchoolExam exam = exams.findById(examId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Exam not found."));
-        requireSectionAccess(exam.getSection().getId(), authentication);
+        requireFullSectionAccess(exam.getSection().getId(), authentication);
         String subjectName = request.subject().trim();
         SchoolSectionSubject sectionSubject = sectionSubjects
                 .findBySection_IdAndSubjectIgnoreCase(exam.getSection().getId(), subjectName)
@@ -215,7 +216,7 @@ public class SchoolExamController {
         SchoolExamSubject examSubject = subjects.findById(subjectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Exam subject not found."));
         SchoolExam exam = examSubject.getExam();
-        requireSectionAccess(exam.getSection().getId(), authentication);
+        requireSubjectAccess(examSubject, authentication);
         List<SchoolPerson> students = people.findAllBySection_IdAndAccount_RoleOrderByFullName(
                 exam.getSection().getId(), Role.STUDENT);
         var studentsById = students.stream().collect(java.util.stream.Collectors.toMap(
@@ -243,7 +244,7 @@ public class SchoolExamController {
         return marks.findAllByExamSubject_Id(subjectId).stream().map(this::toMarkResponse).toList();
     }
 
-    private ExamResponse toResponse(SchoolExam exam) {
+    private ExamResponse toResponse(SchoolExam exam, Authentication authentication) {
         return new ExamResponse(
                 exam.getId(),
                 exam.getSection().getId(),
@@ -251,6 +252,7 @@ public class SchoolExamController {
                 exam.getName(),
                 exam.getAcademicYear(),
                 subjects.findAllByExam_IdOrderBySectionSubject_SubjectAsc(exam.getId()).stream()
+                        .filter(subject -> canAccessSubject(subject.getSectionSubject(), authentication))
                         .map(this::toSubjectResponse)
                         .toList());
     }
@@ -278,8 +280,50 @@ public class SchoolExamController {
         }
         if (authentication.getAuthorities().stream()
                 .anyMatch(authority -> authority.getAuthority().equals("ROLE_TEACHER"))
-                && !assignments.existsByTeacher_Account_UsernameAndSection_Id(authentication.getName(), sectionId)) {
+                && !hasFullSectionAccess(authentication.getName(), sectionId)
+                && !sectionSubjects.existsByTeacher_Account_UsernameAndSection_Id(authentication.getName(), sectionId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This section is not assigned to you.");
+        }
+    }
+
+    private void requireFullSectionAccess(Long sectionId, Authentication authentication) {
+        requireSectionExists(sectionId);
+        if (isTeacher(authentication) && !hasFullSectionAccess(authentication.getName(), sectionId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Full section access is required.");
+        }
+    }
+
+    private void requireSubjectAccess(SchoolExamSubject subject, Authentication authentication) {
+        if (isTeacher(authentication)
+                && !hasFullSectionAccess(authentication.getName(), subject.getExam().getSection().getId())
+                && !sectionSubjects.existsByTeacher_Account_UsernameAndSection_IdAndSubjectIgnoreCase(
+                        authentication.getName(),
+                        subject.getExam().getSection().getId(),
+                        subject.getSubject())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This subject is not assigned to you.");
+        }
+    }
+
+    private boolean canAccessSubject(SchoolSectionSubject subject, Authentication authentication) {
+        return !isTeacher(authentication)
+                || hasFullSectionAccess(authentication.getName(), subject.getSection().getId())
+                || (subject.getTeacher() != null
+                    && subject.getTeacher().getAccount().getUsername().equals(authentication.getName()));
+    }
+
+    private boolean hasFullSectionAccess(String username, Long sectionId) {
+        return assignments.existsByTeacher_Account_UsernameAndSection_Id(username, sectionId)
+                || sections.existsByClassTeacher_Account_UsernameAndId(username, sectionId);
+    }
+
+    private boolean isTeacher(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_TEACHER"));
+    }
+
+    private void requireSectionExists(Long sectionId) {
+        if (!sections.existsById(sectionId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Section not found.");
         }
     }
 

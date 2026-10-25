@@ -1,6 +1,8 @@
 import type {
   AttendanceStatus,
+  AdminAccount,
   ClassDirectory,
+  ClassTeacherStudent,
   SchoolClass,
   SchoolExam,
   SchoolExamDefinition,
@@ -103,6 +105,23 @@ export async function getClassDirectory(classId: number): Promise<ClassDirectory
   return request<ClassDirectory>(`/classes/${classId}/directory`);
 }
 
+export async function assignClassTeacher(classId: number, sectionId: number, teacherId: number | null): Promise<void> {
+  await mutate<void>(`/classes/${classId}/sections/${sectionId}/class-teacher`, "PUT", { teacherId });
+}
+
+export async function assignSubjectTeacher(
+  classId: number,
+  sectionId: number,
+  subjectId: number,
+  teacherId: number | null,
+): Promise<void> {
+  await mutate<void>(
+    `/classes/${classId}/sections/${sectionId}/subjects/${subjectId}/teacher`,
+    "PUT",
+    { teacherId },
+  );
+}
+
 export async function createClass(name: string): Promise<SchoolClass> {
   return mutate<SchoolClass>("/classes", "POST", { name });
 }
@@ -119,6 +138,23 @@ export async function getPeople(role: "TEACHER" | "STUDENT"): Promise<SchoolPers
   return request<SchoolPerson[]>(`/people?role=${role}`);
 }
 
+export async function getAdminAccounts(): Promise<AdminAccount[]> {
+  return request<AdminAccount[]>("/people/accounts");
+}
+
+export async function updateAdminAccountCredentials(
+  accountId: number,
+  credentials: { username: string; newPassword: string | null },
+): Promise<AdminAccount> {
+  return mutate<AdminAccount>(`/people/accounts/${accountId}/credentials`, "PATCH", credentials);
+}
+
+export async function updateMyCredentials(
+  credentials: { username: string; newPassword: string | null },
+): Promise<{ username: string; role: string }> {
+  return mutate<{ username: string; role: string }>("/account/credentials", "PATCH", credentials);
+}
+
 export async function createPerson(person: {
   fullName: string;
   username: string;
@@ -130,8 +166,32 @@ export async function createPerson(person: {
   fatherName: string | null;
   emergencyContact: string | null;
   sectionIds: number[];
+  salary: number | null;
+  degree: string | null;
+  subjectExpertise: string[];
 }): Promise<SchoolPerson> {
   return mutate<SchoolPerson>("/people", "POST", person);
+}
+
+export async function updateTeacherDetails(
+  personId: number,
+  details: Pick<SchoolPerson, "fullName" | "phone" | "salary" | "degree" | "subjectExpertise">,
+): Promise<SchoolPerson> {
+  return mutate<SchoolPerson>(`/people/${personId}/teacher-details`, "PATCH", details);
+}
+
+export async function updateStudentDetails(
+  personId: number,
+  details: {
+    fullName: string;
+    dateOfBirth: string;
+    motherName: string;
+    fatherName: string;
+    emergencyContact: string | null;
+    sectionId: number;
+  },
+): Promise<SchoolPerson> {
+  return mutate<SchoolPerson>(`/people/${personId}/student-details`, "PATCH", details);
 }
 
 export async function updateTeacherSections(personId: number, sectionIds: number[]): Promise<SchoolPerson> {
@@ -154,6 +214,22 @@ export async function getTeacherSections(): Promise<TeacherSection[]> {
 
 export async function getTeacherRoster(sectionId: number): Promise<TeacherStudent[]> {
   return request<TeacherStudent[]>(`/teacher/sections/${sectionId}/students`);
+}
+
+export async function getClassTeacherStudents(sectionId: number): Promise<ClassTeacherStudent[]> {
+  return request<ClassTeacherStudent[]>(`/teacher/class-teacher/sections/${sectionId}/students`);
+}
+
+export async function updateClassTeacherStudent(
+  sectionId: number,
+  studentId: number,
+  details: Pick<ClassTeacherStudent, "fullName" | "dateOfBirth" | "motherName" | "fatherName" | "emergencyContact">,
+): Promise<ClassTeacherStudent> {
+  return mutate<ClassTeacherStudent>(
+    `/teacher/class-teacher/sections/${sectionId}/students/${studentId}`,
+    "PATCH",
+    details,
+  );
 }
 
 export async function getTeacherProgress(sectionId: number): Promise<{ sectionId: number; students: TeacherStudentProgress[] }> {

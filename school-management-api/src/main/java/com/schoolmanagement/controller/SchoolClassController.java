@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -29,6 +30,7 @@ public class SchoolClassController {
     private final SchoolClassRepository classes;
     private final SchoolSectionRepository sections;
     private final SchoolPersonRepository people;
+    private final SchoolSectionSubjectRepository sectionSubjects;
     private final TeacherSectionAssignmentRepository assignments;
     private final SchoolExamProvisioningService examProvisioning;
     private final SchoolExamRepository exams;
@@ -39,6 +41,7 @@ public class SchoolClassController {
             SchoolClassRepository classes,
             SchoolSectionRepository sections,
             SchoolPersonRepository people,
+            SchoolSectionSubjectRepository sectionSubjects,
             TeacherSectionAssignmentRepository assignments,
             SchoolExamProvisioningService examProvisioning,
             SchoolExamRepository exams,
@@ -47,6 +50,7 @@ public class SchoolClassController {
         this.classes = classes;
         this.sections = sections;
         this.people = people;
+        this.sectionSubjects = sectionSubjects;
         this.assignments = assignments;
         this.examProvisioning = examProvisioning;
         this.exams = exams;
@@ -77,6 +81,9 @@ public class SchoolClassController {
                 .map(section -> new ClassSectionDirectoryResponse(
                         section.getId(),
                         section.getName(),
+                        section.getClassTeacher() == null ? null : new ClassTeacherResponse(
+                                section.getClassTeacher().getId(),
+                                section.getClassTeacher().getFullName()),
                         people.findAllBySection_IdAndAccount_RoleOrderByFullName(section.getId(), Role.STUDENT).stream()
                                 .map(student -> new ClassStudentResponse(
                                         student.getId(), student.getFullName(), student.getRollNumber()))
@@ -85,9 +92,68 @@ public class SchoolClassController {
                                 .map(assignment -> new ClassTeacherResponse(
                                         assignment.getTeacher().getId(),
                                         assignment.getTeacher().getFullName()))
+                                .toList(),
+                        sectionSubjects.findAllBySection_IdOrderBySubjectAsc(section.getId()).stream()
+                                .map(subject -> new ClassSubjectResponse(
+                                        subject.getId(),
+                                        subject.getSubject(),
+                                        subject.getTeacher() == null ? null : new ClassTeacherResponse(
+                                                subject.getTeacher().getId(),
+                                                subject.getTeacher().getFullName())))
                                 .toList()))
                 .toList();
-        return new ClassDirectoryResponse(schoolClass.getId(), schoolClass.getName(), sectionDetails);
+        return new ClassDirectoryResponse(
+                schoolClass.getId(),
+                schoolClass.getName(),
+                sectionDetails);
+    }
+
+    @PutMapping("/{classId}/sections/{sectionId}/class-teacher")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void assignClassTeacher(
+            @PathVariable Long classId,
+            @PathVariable Long sectionId,
+            @RequestBody TeacherAssignmentRequest request) {
+        if (!sections.existsByIdAndSchoolClass_Id(sectionId, classId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Section not found in this class.");
+        }
+        SchoolSection section = sections.findById(sectionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Section not found."));
+        section.assignClassTeacher(request.teacherId() == null ? null : findTeacher(request.teacherId()));
+    }
+
+    @PutMapping("/{classId}/sections/{sectionId}/subjects/{subjectId}/teacher")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void assignSubjectTeacher(
+            @PathVariable Long classId,
+            @PathVariable Long sectionId,
+            @PathVariable Long subjectId,
+            @RequestBody TeacherAssignmentRequest request) {
+        if (!sections.existsByIdAndSchoolClass_Id(sectionId, classId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Section not found in this class.");
+        }
+        SchoolSectionSubject subject = sectionSubjects.findByIdAndSection_Id(subjectId, sectionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Section subject not found."));
+        SchoolPerson teacher = request.teacherId() == null ? null : findTeacher(request.teacherId());
+        if (teacher != null && teacher.getSubjectExpertise().stream()
+                .noneMatch(expertise -> expertise.equalsIgnoreCase(subject.getSubject()))) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Choose a teacher whose subject expertise matches this subject.");
+        }
+        subject.assignTeacher(teacher);
+    }
+
+    private SchoolPerson findTeacher(Long teacherId) {
+        SchoolPerson teacher = people.findById(teacherId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Teacher not found."));
+        if (teacher.getAccount().getRole() != Role.TEACHER) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only teacher accounts can be assigned.");
+        }
+        return teacher;
     }
 
     @PostMapping
@@ -139,6 +205,9 @@ public class SchoolClassController {
     public record CreateSectionRequest(@NotBlank @Size(max = 40) String name) {
     }
 
+    public record TeacherAssignmentRequest(Long teacherId) {
+    }
+
     public record ClassResponse(Long id, String name, List<SectionResponse> sections) {
     }
 
@@ -154,13 +223,18 @@ public class SchoolClassController {
     public record ClassSectionDirectoryResponse(
             Long id,
             String name,
+            ClassTeacherResponse classTeacher,
             List<ClassStudentResponse> students,
-            List<ClassTeacherResponse> teachers) {
+            List<ClassTeacherResponse> teachers,
+            List<ClassSubjectResponse> subjects) {
     }
 
     public record ClassStudentResponse(Long id, String fullName, Integer rollNumber) {
     }
 
     public record ClassTeacherResponse(Long id, String fullName) {
+    }
+
+    public record ClassSubjectResponse(Long id, String subject, ClassTeacherResponse teacher) {
     }
 }

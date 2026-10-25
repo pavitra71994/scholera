@@ -106,8 +106,9 @@ public class AttendanceController {
         }
         if (authentication != null && authentication.getAuthorities().stream()
                 .anyMatch(authority -> authority.getAuthority().equals("ROLE_TEACHER"))
-                && !assignments.existsByTeacher_Account_UsernameAndSection_Id(authentication.getName(), sectionId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This section is not assigned to you.");
+                && !assignments.existsByTeacher_Account_UsernameAndSection_Id(authentication.getName(), sectionId)
+                && !sections.existsByClassTeacher_Account_UsernameAndId(authentication.getName(), sectionId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Attendance access is not assigned for this section.");
         }
     }
 

@@ -5,7 +5,10 @@ import { LoginForm } from "../components/auth/LoginForm";
 import { ExamSetupPanel } from "../components/admin/panels/ExamSetupPanel";
 import { ClassesPanel as ClassesManagement } from "../components/admin/panels/ClassesPanel";
 import { PeopleManagement } from "../components/admin/panels/PeoplePanel";
+import { TeacherClassesPage } from "../components/teacher/panels/ClassesPanel";
 import {
+  assignClassTeacher,
+  assignSubjectTeacher,
   createClass,
   createExam,
   createExamSubject,
@@ -34,16 +37,25 @@ import {
   getAttendance,
   getAttendanceHistory,
   getClassDirectory,
+  getClassTeacherStudents,
+  getAdminAccounts,
   getTeacherProfile,
   getTeacherProgress,
   getTeacherRoster,
   getTeacherSections,
   saveAttendance,
   saveExamMarks,
+  updateTeacherDetails,
+  updateStudentDetails,
+  updateClassTeacherStudent,
+  updateAdminAccountCredentials,
+  updateMyCredentials,
   updateTeacherProfile,
 } from "../services/api";
 
 vi.mock("../services/api", () => ({
+  assignClassTeacher: vi.fn(),
+  assignSubjectTeacher: vi.fn(),
   createClass: vi.fn(),
   createExam: vi.fn(),
   createExamSubject: vi.fn(),
@@ -58,6 +70,8 @@ vi.mock("../services/api", () => ({
   getAttendance: vi.fn(),
   getAttendanceHistory: vi.fn(),
   getClassDirectory: vi.fn(),
+  getClassTeacherStudents: vi.fn(),
+  getAdminAccounts: vi.fn(),
   getClasses: vi.fn(),
   getExams: vi.fn(),
   getSchoolExamDefinitions: vi.fn(),
@@ -81,6 +95,11 @@ vi.mock("../services/api", () => ({
   saveExamMarks: vi.fn(),
   updateStudentProfile: vi.fn(),
   updateTeacherProfile: vi.fn(),
+  updateTeacherDetails: vi.fn(),
+  updateStudentDetails: vi.fn(),
+  updateClassTeacherStudent: vi.fn(),
+  updateAdminAccountCredentials: vi.fn(),
+  updateMyCredentials: vi.fn(),
   updateTeacherSections: vi.fn(),
   updateSchoolProfile: vi.fn(),
 }));
@@ -89,6 +108,8 @@ beforeEach(() => {
   window.location.hash = "";
   localStorage.clear();
   vi.mocked(createClass).mockReset();
+  vi.mocked(assignClassTeacher).mockReset().mockResolvedValue();
+  vi.mocked(assignSubjectTeacher).mockReset().mockResolvedValue();
   vi.mocked(createExam).mockReset();
   vi.mocked(createExamSubject).mockReset();
   vi.mocked(createSectionSubject).mockReset();
@@ -103,7 +124,10 @@ beforeEach(() => {
   vi.mocked(getSchoolExamDefinitions).mockReset();
   vi.mocked(getSectionSubjects).mockReset();
   vi.mocked(getClassDirectory).mockReset();
+  vi.mocked(getClassTeacherStudents).mockReset();
+  vi.mocked(getAdminAccounts).mockReset().mockResolvedValue([]);
   vi.mocked(getPeople).mockReset();
+  vi.mocked(getPeople).mockResolvedValue([]);
   vi.mocked(getAttendance).mockReset();
   vi.mocked(getAttendanceHistory).mockReset();
   vi.mocked(getSession).mockReset();
@@ -121,6 +145,11 @@ beforeEach(() => {
   vi.mocked(saveAttendance).mockReset();
   vi.mocked(saveExamMarks).mockReset();
   vi.mocked(createPerson).mockReset();
+  vi.mocked(updateTeacherDetails).mockReset();
+  vi.mocked(updateStudentDetails).mockReset();
+  vi.mocked(updateClassTeacherStudent).mockReset();
+  vi.mocked(updateAdminAccountCredentials).mockReset();
+  vi.mocked(updateMyCredentials).mockReset();
 });
 
 afterEach(() => {
@@ -191,10 +220,28 @@ describe("classes and sections management", () => {
       sections: [{
         id: 10,
         name: "A",
+        classTeacher: null,
         students: [{ id: 21, fullName: "Ari Student", rollNumber: 3 }],
         teachers: [{ id: 31, fullName: "Ravi Teacher" }],
+        subjects: [{ id: 45, subject: "Mathematics", teacher: null }],
       }],
     });
+    vi.mocked(getPeople).mockResolvedValue([{
+      id: 31,
+      fullName: "Ravi Teacher",
+      username: "ravi",
+      role: "TEACHER",
+      sectionId: null,
+      sectionName: null,
+      className: null,
+      rollNumber: null,
+      assignedSections: [],
+      salary: 45000,
+      degree: "B.Ed",
+      subjectExpertise: ["Mathematics"],
+    }]);
+    vi.mocked(assignClassTeacher).mockResolvedValue();
+    vi.mocked(assignSubjectTeacher).mockResolvedValue();
 
     render(<ClassesManagement />);
     fireEvent.click(await screen.findByRole("button", { name: "Open class details" }));
@@ -202,6 +249,11 @@ describe("classes and sections management", () => {
     expect(await screen.findByText((_, element) =>
       element?.tagName === "LI" && Boolean(element.textContent?.includes("Ari Student")))).toBeInTheDocument();
     expect(screen.getByText("Ravi Teacher")).toBeInTheDocument();
+    await chooseDropdownOption("Class teacher for Grade 5 A", "Ravi Teacher");
+    fireEvent.click(screen.getByRole("button", { name: "Save class teacher" }));
+    await waitFor(() => expect(assignClassTeacher).toHaveBeenCalledWith(1, 10, 31));
+    await chooseDropdownOption("Teacher for Grade 5 A Mathematics", "Ravi Teacher");
+    await waitFor(() => expect(assignSubjectTeacher).toHaveBeenCalledWith(1, 10, 45, 31));
     expect(getClassDirectory).toHaveBeenCalledWith(1);
   });
 });
@@ -211,11 +263,11 @@ describe("people directory", () => {
     vi.mocked(getClasses).mockResolvedValue([]);
     vi.mocked(getPeople).mockImplementation(async (role) => role === "STUDENT"
       ? [
-        { id: 1, fullName: "Zara Student", username: "zara", role: "STUDENT", sectionId: 2, sectionName: "B", className: "Grade 6", rollNumber: 5, assignedSections: [] },
-        { id: 2, fullName: "Ari Student", username: "ari", role: "STUDENT", sectionId: 1, sectionName: "A", className: "Grade 5", rollNumber: 2, assignedSections: [] },
+        { id: 1, fullName: "Zara Student", username: "zara", role: "STUDENT", sectionId: 2, sectionName: "B", className: "Grade 6", rollNumber: 5, assignedSections: [], salary: null, degree: null, subjectExpertise: [] },
+        { id: 2, fullName: "Ari Student", username: "ari", role: "STUDENT", sectionId: 1, sectionName: "A", className: "Grade 5", rollNumber: 2, assignedSections: [], salary: null, degree: null, subjectExpertise: [] },
       ]
       : [
-        { id: 3, fullName: "Mina Teacher", username: "mina", role: "TEACHER", sectionId: null, sectionName: null, className: null, rollNumber: null, assignedSections: [{ id: 2, name: "B", classId: 6, className: "Grade 6" }] },
+        { id: 3, fullName: "Mina Teacher", username: "mina", role: "TEACHER", sectionId: null, sectionName: null, className: null, rollNumber: null, assignedSections: [{ id: 2, name: "B", classId: 6, className: "Grade 6" }], salary: null, degree: null, subjectExpertise: [] },
       ]);
 
     render(<PeopleManagement />);
@@ -233,6 +285,77 @@ describe("people directory", () => {
     expect(await screen.findByText("Mina Teacher")).toBeInTheDocument();
     await chooseDropdownOption("Sort by", "Class");
     expect(screen.getByRole("combobox", { name: "Sort by" })).toHaveTextContent("Class");
+  });
+
+  it("lets an admin edit a student's profile without changing account identity", async () => {
+    const student = {
+      id: 12,
+      fullName: "Ari Student",
+      username: "ari",
+      role: "STUDENT" as const,
+      sectionId: 10,
+      sectionName: "A",
+      className: "Grade 5",
+      rollNumber: 2,
+      assignedSections: [],
+      salary: null,
+      degree: null,
+      subjectExpertise: [],
+      dateOfBirth: "2014-05-12",
+      motherName: "Parent One",
+      fatherName: "Parent Two",
+      emergencyContact: "555-0100",
+    };
+    vi.mocked(getClasses).mockResolvedValue([{ id: 1, name: "Grade 5", sections: [{ id: 10, name: "A" }] }]);
+    vi.mocked(getPeople).mockImplementation(async (role) => role === "STUDENT" ? [student] : []);
+    vi.mocked(updateStudentDetails).mockResolvedValue({ ...student, fullName: "Ari Updated" });
+
+    render(<PeopleManagement />);
+    fireEvent.click(await screen.findByRole("button", { name: /students/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit profile" }));
+    fireEvent.change(screen.getAllByLabelText("Full name")[1], {
+      target: { value: "Ari Updated" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save student" }));
+
+    await waitFor(() => expect(updateStudentDetails).toHaveBeenCalledWith(12, {
+      fullName: "Ari Updated",
+      dateOfBirth: "2014-05-12",
+      motherName: "Parent One",
+      fatherName: "Parent Two",
+      emergencyContact: "555-0100",
+      sectionId: 10,
+    }));
+  });
+
+  it("lets an admin rename or reset any listed account", async () => {
+    vi.mocked(getClasses).mockResolvedValue([]);
+    vi.mocked(getPeople).mockResolvedValue([]);
+    vi.mocked(getAdminAccounts).mockResolvedValue([
+      { id: 71, username: "main-admin", role: "ADMIN" },
+      { id: 72, username: "class-teacher", role: "TEACHER" },
+      { id: 73, username: "student-one", role: "STUDENT" },
+    ]);
+    vi.mocked(updateAdminAccountCredentials).mockResolvedValue({
+      id: 72,
+      username: "teacher-updated",
+      role: "TEACHER",
+    });
+
+    render(<PeopleManagement />);
+    expect(await screen.findByText("main-admin")).toBeInTheDocument();
+    expect(screen.getByText("class-teacher")).toBeInTheDocument();
+    expect(screen.getByText("student-one")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit credentials" })[1]);
+    fireEvent.change(screen.getAllByLabelText("Username")[1], { target: { value: "teacher-updated" } });
+    fireEvent.change(screen.getByLabelText("New password (optional)"), { target: { value: "changed-password" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save credentials" }));
+
+    await waitFor(() => expect(updateAdminAccountCredentials).toHaveBeenCalledWith(72, {
+      username: "teacher-updated",
+      newPassword: "changed-password",
+    }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Account credentials saved.");
   });
 });
 describe("admin navigation", () => {
@@ -360,6 +483,7 @@ describe("student portal", () => {
     vi.mocked(getHealth).mockResolvedValue(true);
     vi.mocked(getStudentProfile).mockResolvedValue({
       displayName: "Taylor Student",
+      username: "learner",
       dateOfBirth: "2009-04-12",
       motherName: "Morgan Student",
       fatherName: "Casey Student",
@@ -371,6 +495,7 @@ describe("student portal", () => {
 
     vi.mocked(updateStudentProfile).mockResolvedValue({
       displayName: "Taylor Student",
+      username: "learner",
       dateOfBirth: "2009-04-12",
       motherName: "Morgan Student",
       fatherName: "Casey Student",
@@ -423,11 +548,12 @@ describe("student portal", () => {
     vi.mocked(getStudentAttendanceHistory).mockResolvedValue({
       presentCount: 1,
       absentCount: 0,
-      lateCount: 1,
+      lateCount: 0,
+      leaveCount: 1,
       recordedDays: 2,
       attendancePercentage: 100,
       history: [
-        { date: "2026-10-24", status: "LATE" },
+        { date: "2026-10-24", status: "LEAVE" },
         { date: "2026-10-23", status: "PRESENT" },
       ],
     });
@@ -469,6 +595,13 @@ describe("student portal", () => {
     await waitFor(() => expect(updateStudentProfile).toHaveBeenCalledWith({
       emergencyContact: "555-0101",
     }));
+    vi.mocked(updateMyCredentials).mockResolvedValue({ username: "learner-updated", role: "STUDENT" });
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "learner-updated" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save credentials" }));
+    await waitFor(() => expect(updateMyCredentials).toHaveBeenCalledWith({
+      username: "learner-updated",
+      newPassword: null,
+    }));
 
     fireEvent.click(screen.getByRole("link", { name: /your school life/i }));
     fireEvent.click(await screen.findByRole("link", { name: /open exam results & progress/i }));
@@ -487,6 +620,7 @@ describe("student portal", () => {
     fireEvent.click(screen.getByRole("link", { name: /your school life/i }));
     fireEvent.click(await screen.findByRole("link", { name: /open attendance summary/i }));
     expect(await screen.findByText("100%")).toBeInTheDocument();
+    expect(screen.getAllByText("Leave")).toHaveLength(2);
     expect(screen.getByText("2026-10-24")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: /your school life/i }));
@@ -543,7 +677,14 @@ describe("admin and teacher topper dashboards", () => {
 });
 
 describe("teacher portal", () => {
-  const section = { id: 31, name: "B", classId: 7, className: "Grade 7" };
+  const section = {
+    id: 31,
+    name: "B",
+    classId: 7,
+    className: "Grade 7",
+    fullSectionAccess: true,
+    assignedSubjects: [],
+  };
   const profile = {
     displayName: "Jordan Teacher",
     username: "jordan",
@@ -576,13 +717,47 @@ describe("teacher portal", () => {
     fireEvent.click(screen.getByRole("link", { name: /teaching workspace/i }));
     fireEvent.click(await screen.findByRole("link", { name: /open my profile/i }));
     expect(await screen.findByLabelText("Username")).toHaveValue("jordan");
-    expect(screen.getByLabelText("Username")).toHaveAttribute("readonly");
     fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Jordan Updated" } });
     fireEvent.change(screen.getByLabelText(/Phone/), { target: { value: "555-0112" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => expect(updateTeacherProfile).toHaveBeenCalledWith({
       displayName: "Jordan Updated",
       phone: "555-0112",
+    }));
+    vi.mocked(updateMyCredentials).mockResolvedValue({ username: "jordan-updated", role: "TEACHER" });
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "jordan-updated" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save credentials" }));
+    await waitFor(() => expect(updateMyCredentials).toHaveBeenCalledWith({
+      username: "jordan-updated",
+      newPassword: null,
+    }));
+  });
+
+  it("lets only a class teacher view and edit student profile details in the assigned section", async () => {
+    const classTeacherSection = { ...section, classTeacher: true };
+    const student = {
+      ...roster[0],
+      dateOfBirth: "2014-05-12",
+      motherName: "Parent One",
+      fatherName: "Parent Two",
+      emergencyContact: "555-0100",
+    };
+    vi.mocked(getTeacherSections).mockResolvedValue([classTeacherSection]);
+    vi.mocked(getClassTeacherStudents).mockResolvedValue([student]);
+    vi.mocked(updateClassTeacherStudent).mockResolvedValue({ ...student, fullName: "Alex Updated" });
+
+    render(<TeacherClassesPage />);
+    expect(await screen.findByText("Parent One / Parent Two")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Alex Updated" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save profile" }));
+
+    await waitFor(() => expect(updateClassTeacherStudent).toHaveBeenCalledWith(31, 44, {
+      fullName: "Alex Updated",
+      dateOfBirth: "2014-05-12",
+      motherName: "Parent One",
+      fatherName: "Parent Two",
+      emergencyContact: "555-0100",
     }));
   });
 
@@ -620,6 +795,7 @@ describe("teacher portal", () => {
         studentId: 44,
         studentName: "Alex Learner",
         recordedAttendance: 1,
+        leaveCount: 0,
         attendancePercentage: 100,
         marks: [{ examName: "Midterm", subject: "Science", academicYear: 2026, obtainedMarks: 30, maximumMarks: 40 }],
       }],
@@ -663,6 +839,9 @@ describe("student enrollment form", () => {
       className: "Grade 1",
       rollNumber: 1,
       assignedSections: [],
+      salary: null,
+      degree: null,
+      subjectExpertise: [],
     });
     render(<PeopleManagement />);
     expect(await screen.findByLabelText("Date of birth")).toBeRequired();
@@ -692,6 +871,9 @@ describe("teacher section assignment form", () => {
       className: null,
       rollNumber: null,
       assignedSections: [],
+      salary: 45000,
+      degree: "B.Ed",
+      subjectExpertise: ["Mathematics", "Science"],
     });
 
     render(<PeopleManagement />);
@@ -703,6 +885,9 @@ describe("teacher section assignment form", () => {
     expect(passwordInput).not.toHaveAttribute("minlength");
     expect(passwordInput).not.toHaveAttribute("maxlength");
     fireEvent.change(passwordInput, { target: { value: "x" } });
+    fireEvent.change(screen.getByLabelText("Monthly salary (INR)"), { target: { value: "45000" } });
+    fireEvent.change(screen.getByLabelText("Degree"), { target: { value: "B.Ed" } });
+    fireEvent.change(screen.getByLabelText("Subject expertise"), { target: { value: "Mathematics, Science" } });
     const assignedSections = screen.getByLabelText("Assigned sections") as HTMLSelectElement;
     Array.from(assignedSections.options).forEach((option) => { option.selected = true; });
     fireEvent.change(assignedSections);
@@ -714,6 +899,9 @@ describe("teacher section assignment form", () => {
       password: "x",
       sectionId: null,
       sectionIds: [10, 11],
+      salary: 45000,
+      degree: "B.Ed",
+      subjectExpertise: ["Mathematics", "Science"],
     })));
   });
 });

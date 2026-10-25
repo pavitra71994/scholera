@@ -1,23 +1,46 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { createPerson, getPeople, updateTeacherSections } from "../../../services/api";
-import type { SchoolPerson } from "../../../types/api";
+import {
+  createPerson,
+  getAdminAccounts,
+  getPeople,
+  updateAdminAccountCredentials,
+  updateStudentDetails,
+  updateTeacherDetails,
+  updateTeacherSections,
+} from "../../../services/api";
+import type { AdminAccount, SchoolPerson } from "../../../types/api";
 import { useAdminSections } from "../../../hooks/useAdminSections";
 import { personClassNames } from "../../../utils/people";
 import { SectionSelect } from "./SectionSelect";
 import { DropdownSelect } from "../../shared/DropdownSelect";
+import { AccountCredentialsEditor } from "../../shared/AccountCredentialsEditor";
 
-export function PeopleManagement() {
+export function PeopleManagement({ currentUsername = "" }: { currentUsername?: string }) {
   const { sections, error: sectionError, loading: sectionsLoading } = useAdminSections();
   const [people, setPeople] = useState<SchoolPerson[]>([]);
+  const [accounts, setAccounts] = useState<AdminAccount[]>([]);
+  const [editingAccountId, setEditingAccountId] = useState<number | null>(null);
   const [role, setRole] = useState<"TEACHER" | "STUDENT">("STUDENT");
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [sectionId, setSectionId] = useState<number | null>(null);
   const [teacherSectionIds, setTeacherSectionIds] = useState<number[]>([]);
+  const [teacherSalary, setTeacherSalary] = useState("");
+  const [teacherDegree, setTeacherDegree] = useState("");
+  const [teacherExpertise, setTeacherExpertise] = useState("");
+  const [teacherFullName, setTeacherFullName] = useState("");
+  const [teacherPhone, setTeacherPhone] = useState("");
   const [editingTeacherId, setEditingTeacherId] = useState<number | null>(null);
   const [editingSectionIds, setEditingSectionIds] = useState<number[]>([]);
+  const [editingStudentId, setEditingStudentId] = useState<number | null>(null);
+  const [studentFullName, setStudentFullName] = useState("");
+  const [studentDateOfBirth, setStudentDateOfBirth] = useState("");
+  const [studentMotherName, setStudentMotherName] = useState("");
+  const [studentFatherName, setStudentFatherName] = useState("");
+  const [studentEmergencyContact, setStudentEmergencyContact] = useState("");
+  const [studentSectionId, setStudentSectionId] = useState<number | null>(null);
   const [directoryRole, setDirectoryRole] = useState<"STUDENT" | "TEACHER" | null>(null);
   const [directoryView, setDirectoryView] = useState<"by-class" | "all">("all");
   const [directorySearch, setDirectorySearch] = useState("");
@@ -32,8 +55,17 @@ export function PeopleManagement() {
   const [saving, setSaving] = useState(false);
 
   async function refreshPeople() {
-    const [students, teachers] = await Promise.all([getPeople("STUDENT"), getPeople("TEACHER")]);
+    const [students, teachers, allAccounts] = await Promise.all([
+      getPeople("STUDENT"),
+      getPeople("TEACHER"),
+      getAdminAccounts(),
+    ]);
     setPeople([...students, ...teachers].sort((a, b) => a.fullName.localeCompare(b.fullName)));
+    setAccounts(allAccounts);
+  }
+
+  function parseExpertise(value: string): string[] {
+    return [...new Set(value.split(",").map((subject) => subject.trim()).filter(Boolean))];
   }
 
   useEffect(() => {
@@ -95,6 +127,9 @@ export function PeopleManagement() {
         role,
         sectionId: role === "STUDENT" ? sectionId : null,
         sectionIds: role === "TEACHER" ? teacherSectionIds : [],
+        salary: role === "TEACHER" && teacherSalary ? Number(teacherSalary) : null,
+        degree: role === "TEACHER" && teacherDegree.trim() ? teacherDegree.trim() : null,
+        subjectExpertise: role === "TEACHER" ? parseExpertise(teacherExpertise) : [],
         dateOfBirth: role === "STUDENT" ? dateOfBirth : null,
         motherName: role === "STUDENT" ? motherName.trim() : null,
         fatherName: role === "STUDENT" ? fatherName.trim() : null,
@@ -106,6 +141,9 @@ export function PeopleManagement() {
       setPassword("");
       setSectionId(null);
       setTeacherSectionIds([]);
+      setTeacherSalary("");
+      setTeacherDegree("");
+      setTeacherExpertise("");
       setDateOfBirth("");
       setMotherName("");
       setFatherName("");
@@ -123,15 +161,62 @@ export function PeopleManagement() {
     setError("");
     setMessage("");
     try {
+      const teacher = people.find((person) => person.id === personId);
+      if (teacher) {
+        await updateTeacherDetails(personId, {
+          fullName: teacherFullName.trim(),
+          phone: teacherPhone.trim() || null,
+          salary: teacherSalary ? Number(teacherSalary) : null,
+          degree: teacherDegree.trim() || null,
+          subjectExpertise: parseExpertise(teacherExpertise),
+        });
+      }
       await updateTeacherSections(personId, editingSectionIds);
       await refreshPeople();
       setEditingTeacherId(null);
-      setMessage("Teacher section assignments saved.");
+      setMessage("Teacher details and section assignments saved.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not update teacher assignments.");
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveStudentProfile(personId: number) {
+    if (studentSectionId === null || !studentDateOfBirth) {
+      setError("Choose a section and date of birth for the student.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      await updateStudentDetails(personId, {
+        fullName: studentFullName.trim(),
+        dateOfBirth: studentDateOfBirth,
+        motherName: studentMotherName.trim(),
+        fatherName: studentFatherName.trim(),
+        emergencyContact: studentEmergencyContact.trim() || null,
+        sectionId: studentSectionId,
+      });
+      await refreshPeople();
+      setEditingStudentId(null);
+      setMessage("Student profile saved.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not update student profile.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function editStudent(person: SchoolPerson) {
+    setEditingStudentId(person.id);
+    setStudentFullName(person.fullName);
+    setStudentDateOfBirth(person.dateOfBirth ?? "");
+    setStudentMotherName(person.motherName ?? "");
+    setStudentFatherName(person.fatherName ?? "");
+    setStudentEmergencyContact(person.emergencyContact ?? "");
+    setStudentSectionId(person.sectionId);
   }
 
   return (
@@ -140,7 +225,7 @@ export function PeopleManagement() {
         <div><p className="eyebrow">School directory</p><h3>Students &amp; teachers</h3></div>
         <span className="status-pill">{people.length} {people.length === 1 ? "account" : "accounts"}</span>
       </div>
-      <p className="muted">Create sign-in accounts for your school community. Students are assigned to a class section.</p>
+      <p className="muted">Create accounts for students and teachers. Teacher records include monthly salary, degree, and subject expertise.</p>
       <div className="directory-role-cards" aria-label="Choose a directory">
         <button
           aria-pressed={directoryRole === "STUDENT"}
@@ -193,19 +278,36 @@ export function PeopleManagement() {
           </>
         )}
         {role === "TEACHER" && (
-          <label className="module-field full-width-field">Assigned sections <span className="muted">(choose one or more)</span>
-            <select
-              aria-label="Assigned sections"
-              multiple
-              onChange={(event) => setTeacherSectionIds(Array.from(event.currentTarget.selectedOptions, (option) => Number(option.value)))}
-              size={Math.min(Math.max(sections.length, 2), 6)}
-              value={teacherSectionIds.map(String)}
-            >
-              {sections.map((section) => (
-                <option key={section.id} value={section.id}>{section.className} · {section.name}</option>
-              ))}
-            </select>
-          </label>
+          <>
+            <label className="module-field">Monthly salary (INR)
+              <input min="0" onChange={(event) => setTeacherSalary(event.target.value)} step="0.01" type="number" value={teacherSalary} />
+            </label>
+            <label className="module-field">Degree
+              <input maxLength={160} onChange={(event) => setTeacherDegree(event.target.value)} value={teacherDegree} />
+            </label>
+            <label className="module-field full-width-field">Subject expertise <span className="muted">(comma-separated, e.g. Mathematics, Science)</span>
+              <input
+                aria-label="Subject expertise"
+                maxLength={1000}
+                onChange={(event) => setTeacherExpertise(event.target.value)}
+                placeholder="Mathematics, Science"
+                value={teacherExpertise}
+              />
+            </label>
+            <label className="module-field full-width-field">Assigned sections <span className="muted">(optional; choose one or more for full-section access)</span>
+              <select
+                aria-label="Assigned sections"
+                multiple
+                onChange={(event) => setTeacherSectionIds(Array.from(event.currentTarget.selectedOptions, (option) => Number(option.value)))}
+                size={Math.min(Math.max(sections.length, 2), 6)}
+                value={teacherSectionIds.map(String)}
+              >
+                {sections.map((section) => (
+                  <option key={section.id} value={section.id}>{section.className} · {section.name}</option>
+                ))}
+              </select>
+            </label>
+          </>
         )}
         <button className="secondary-button" disabled={saving || (role === "STUDENT" && sections.length === 0)} type="submit">
           {saving ? "Creating…" : "Create account"}
@@ -253,8 +355,18 @@ export function PeopleManagement() {
                           {directoryRole === "TEACHER" && <th>Assignments</th>}
                         </tr></thead>
                         <tbody>{group.people.map((person) => (
-                          <tr key={`${group.name}-${person.id}`}>
-                            <td>{person.fullName}</td>
+                          <Fragment key={`${group.name}-${person.id}`}>
+                          <tr>
+                            <td>
+                              {person.fullName}
+                              {person.role === "STUDENT" && (
+                                <button
+                                  className="text-button"
+                                  onClick={() => editingStudentId === person.id ? setEditingStudentId(null) : editStudent(person)}
+                                  type="button"
+                                >{editingStudentId === person.id ? "Close editor" : "Edit profile"}</button>
+                              )}
+                            </td>
                             <td>{person.username}</td>
                             <td>{person.role === "STUDENT"
                               ? `${person.className ?? "Unassigned"}${person.sectionName ? ` · ${person.sectionName}` : ""}`
@@ -263,6 +375,21 @@ export function PeopleManagement() {
                             {directoryRole === "TEACHER" && <td>
                   {person.role === "TEACHER" && editingTeacherId === person.id ? (
                     <div className="assignment-editor">
+                      <label className="module-field">Full name
+                        <input maxLength={160} onChange={(event) => setTeacherFullName(event.target.value)} required value={teacherFullName} />
+                      </label>
+                      <label className="module-field">Phone
+                        <input maxLength={40} onChange={(event) => setTeacherPhone(event.target.value)} value={teacherPhone} />
+                      </label>
+                      <label className="module-field">Monthly salary (INR)
+                        <input min="0" onChange={(event) => setTeacherSalary(event.target.value)} step="0.01" type="number" value={teacherSalary} />
+                      </label>
+                      <label className="module-field">Degree
+                        <input maxLength={160} onChange={(event) => setTeacherDegree(event.target.value)} value={teacherDegree} />
+                      </label>
+                      <label className="module-field">Subject expertise (comma-separated)
+                        <input onChange={(event) => setTeacherExpertise(event.target.value)} value={teacherExpertise} />
+                      </label>
                       <select
                         aria-label={`Sections assigned to ${person.fullName}`}
                         multiple
@@ -282,12 +409,24 @@ export function PeopleManagement() {
                       <span>{person.assignedSections?.length
                         ? person.assignedSections.map((section) => `${section.className} · ${section.name}`).join(", ")
                         : "Unassigned"}</span>
+                      <small>
+                        {[
+                          person.degree,
+                          person.salary == null ? null : `₹${person.salary.toLocaleString("en-IN")} / month`,
+                          person.subjectExpertise?.length ? `Expert: ${person.subjectExpertise.join(", ")}` : null,
+                        ].filter(Boolean).join(" · ") || "No employment details"}
+                      </small>
                       <button
                         className="quiet-button"
                         disabled={sectionsLoading || sections.length === 0}
                         onClick={() => {
                           setEditingTeacherId(person.id);
+                          setTeacherFullName(person.fullName);
+                          setTeacherPhone(person.phone ?? "");
                           setEditingSectionIds(person.assignedSections?.map((section) => section.id) ?? []);
+                          setTeacherSalary(person.salary == null ? "" : String(person.salary));
+                          setTeacherDegree(person.degree ?? "");
+                          setTeacherExpertise(person.subjectExpertise?.join(", ") ?? "");
                         }}
                         type="button"
                       >Edit</button>
@@ -295,6 +434,33 @@ export function PeopleManagement() {
                   ) : "—"}
                             </td>}
                           </tr>
+                          {person.role === "STUDENT" && editingStudentId === person.id && (
+                            <tr>
+                              <td colSpan={4}>
+                                <div className="assignment-editor">
+                                  <label className="module-field">Full name
+                                    <input maxLength={160} onChange={(event) => setStudentFullName(event.target.value)} required value={studentFullName} />
+                                  </label>
+                                  <label className="module-field">Date of birth
+                                    <input max={new Date().toISOString().slice(0, 10)} onChange={(event) => setStudentDateOfBirth(event.target.value)} required type="date" value={studentDateOfBirth} />
+                                  </label>
+                                  <label className="module-field">Mother’s name
+                                    <input maxLength={160} onChange={(event) => setStudentMotherName(event.target.value)} required value={studentMotherName} />
+                                  </label>
+                                  <label className="module-field">Father’s name
+                                    <input maxLength={160} onChange={(event) => setStudentFatherName(event.target.value)} required value={studentFatherName} />
+                                  </label>
+                                  <label className="module-field">Emergency contact
+                                    <input maxLength={40} onChange={(event) => setStudentEmergencyContact(event.target.value)} value={studentEmergencyContact} />
+                                  </label>
+                                  <SectionSelect label="Class / section" sections={sections} value={studentSectionId} onChange={setStudentSectionId} />
+                                  <button className="quiet-button" disabled={saving} onClick={() => void saveStudentProfile(person.id)} type="button">Save student</button>
+                                  <button className="text-button" onClick={() => setEditingStudentId(null)} type="button">Cancel</button>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          </Fragment>
                         ))}</tbody>
                       </table>
                     </div>
@@ -305,6 +471,51 @@ export function PeopleManagement() {
           ) : <p className="class-empty">No {directoryRole === "STUDENT" ? "students" : "teachers"} match your search.</p>}
         </section>
       )}
+      <section className="people-directory" aria-label="Account credentials">
+        <div className="section-heading">
+          <div><p className="eyebrow">Account access</p><h4>Username &amp; password</h4></div>
+          <span className="status-pill">{accounts.length} {accounts.length === 1 ? "account" : "accounts"}</span>
+        </div>
+        <p className="muted">Manage login names and reset passwords for administrators, teachers, and students. Leave a new password blank to keep the existing one.</p>
+        {loading ? <p className="muted">Loading accounts…</p> : accounts.length ? (
+          <div className="module-table-wrap">
+            <table className="module-table">
+              <thead><tr><th>Username</th><th>Role</th><th>Credentials</th></tr></thead>
+              <tbody>{accounts.map((account) => (
+                <Fragment key={account.id}>
+                  <tr>
+                    <td>{account.username}</td>
+                    <td>{account.role}</td>
+                    <td>
+                      <button
+                        className="quiet-button"
+                        onClick={() => setEditingAccountId(editingAccountId === account.id ? null : account.id)}
+                        type="button"
+                      >{editingAccountId === account.id ? "Close" : "Edit credentials"}</button>
+                    </td>
+                  </tr>
+                  {editingAccountId === account.id && (
+                    <tr>
+                      <td colSpan={3}>
+                        <AccountCredentialsEditor
+                          compact
+                          notifyCurrentUser={account.username === currentUsername}
+                          onSave={async (credentials) => {
+                            const updated = await updateAdminAccountCredentials(account.id, credentials);
+                            setAccounts((current) => current.map((item) => item.id === updated.id ? updated : item));
+                            return "Account credentials saved.";
+                          }}
+                          username={account.username}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}</tbody>
+            </table>
+          </div>
+        ) : <p className="class-empty">No accounts found.</p>}
+      </section>
     </section>
   );
 }

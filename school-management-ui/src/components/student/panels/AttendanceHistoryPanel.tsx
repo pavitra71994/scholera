@@ -18,7 +18,7 @@ export function StudentAttendancePanel() {
       <div className="section-heading">
         <div><p className="eyebrow">Your school days</p><h3>Attendance Summary</h3></div>
       </div>
-      <p className="muted">Your percentage is based only on days with a recorded attendance entry.</p>
+      <p className="muted">Leave days are excluded from your attendance percentage.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
       {attendance ? (
         <>
@@ -27,6 +27,7 @@ export function StudentAttendancePanel() {
             <div><strong>{attendance.presentCount}</strong><span>Present</span></div>
             <div><strong>{attendance.absentCount}</strong><span>Absent</span></div>
             <div><strong>{attendance.lateCount}</strong><span>Late</span></div>
+            <div><strong>{attendance.leaveCount}</strong><span>Leave</span></div>
           </div>
           {attendance.history.length ? (
             <div className="student-table-wrap">

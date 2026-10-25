@@ -48,6 +48,7 @@ function readTheme(username: string): Theme {
 export function HomePage({ user, onLogout }: { user: SessionUser; onLogout: () => Promise<void> }) {
   const [health, setHealth] = useState<boolean | null>(null);
   const [logoutError, setLogoutError] = useState("");
+  const [username, setUsername] = useState(user.username);
   const [theme, setTheme] = useState<Theme>(() => readTheme(user.username));
   const [adminPage, setAdminPage] = useState<AdminPage>(() => readRoutePage("#/admin", adminPages, "home"));
   const [studentPage, setStudentPage] = useState<StudentPage>(() => readRoutePage("#/student", studentPages, "home"));
@@ -57,6 +58,19 @@ export function HomePage({ user, onLogout }: { user: SessionUser; onLogout: () =
   useEffect(() => {
     getHealth().then(setHealth);
   }, []);
+
+  useEffect(() => {
+    const updateUsername = (event: Event) => {
+      const detail = (event as CustomEvent<{ username: string }>).detail;
+      if (!detail?.username || detail.username === username) return;
+      const savedTheme = localStorage.getItem(`scholora.theme.${username}`);
+      if (savedTheme) localStorage.setItem(`scholora.theme.${detail.username}`, savedTheme);
+      setUsername(detail.username);
+      setTheme(readTheme(detail.username));
+    };
+    window.addEventListener("account-credentials-updated", updateUsername);
+    return () => window.removeEventListener("account-credentials-updated", updateUsername);
+  }, [username]);
 
   useEffect(() => {
     if (user.role !== "ADMIN") return;
@@ -104,7 +118,7 @@ export function HomePage({ user, onLogout }: { user: SessionUser; onLogout: () =
             label="Theme"
             onChange={(selected) => {
               if (!isTheme(selected)) return;
-              localStorage.setItem(`scholora.theme.${user.username}`, selected);
+              localStorage.setItem(`scholora.theme.${username}`, selected);
               setTheme(selected);
             }}
             options={themes.map(({ value, label }) => ({ value, label }))}
@@ -119,7 +133,7 @@ export function HomePage({ user, onLogout }: { user: SessionUser; onLogout: () =
         {user.role !== "ADMIN" && <section className="welcome-row">
           <div>
             <p className="eyebrow">{roleLabels[user.role]} workspace</p>
-            <h1>Good day, {user.role === "TEACHER" && teacherName ? teacherName : user.username}.</h1>
+            <h1>Good day, {user.role === "TEACHER" && teacherName ? teacherName : username}.</h1>
             <p className="muted">Your school day, organized.</p>
           </div>
           <div className={`api-status ${health ? "is-online" : "is-offline"}`}><span />{health ? "Connected" : health === false ? "API unavailable" : "Connecting"}</div>
@@ -135,7 +149,7 @@ export function HomePage({ user, onLogout }: { user: SessionUser; onLogout: () =
         {logoutError && <p className="form-error" role="alert">{logoutError}</p>}
         {user.role === "ADMIN" && adminPage === "school-profile" && <SchoolProfilePanel />}
         {user.role === "ADMIN" && adminPage === "classes-sections" && <ClassesPanel />}
-        {user.role === "ADMIN" && adminPage === "students-teachers" && <PeopleManagement />}
+        {user.role === "ADMIN" && adminPage === "students-teachers" && <PeopleManagement currentUsername={username} />}
         {user.role === "ADMIN" && adminPage === "attendance" && <AttendanceManagement />}
         {user.role === "ADMIN" && adminPage === "exam-setup" && <ExamSetupPanel />}
         {user.role === "ADMIN" && adminPage === "marks-register" && <MarksRegisterPanel />}

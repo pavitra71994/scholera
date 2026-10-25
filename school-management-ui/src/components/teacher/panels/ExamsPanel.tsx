@@ -33,6 +33,7 @@ export function TeacherExamsPage() {
     () => exams.find((exam) => exam.id === selectedExamId) ?? null,
     [exams, selectedExamId],
   );
+  const selectedSection = sections.find((section) => section.id === sectionId);
   const availableDefinitions = definitions.filter(
     (definition) => !exams.some((exam) => exam.examDefinitionId === definition.id),
   );
@@ -162,7 +163,7 @@ export function TeacherExamsPage() {
   return (
     <section className="teacher-panel">
       <div className="section-heading"><div><p className="eyebrow">Academic results</p><h3>Exams &amp; Marks</h3></div></div>
-      <p className="muted">Activate school-wide exams for your assigned sections, add subjects with their maximum marks, and record student scores.</p>
+      <p className="muted">Class and section teachers can manage exams; subject teachers can view and enter marks only for their assigned subjects.</p>
       <SectionEmptyState error={sectionsError} loading={sectionsLoading} sections={sections} />
       {!sectionsLoading && !sectionsError && sections.length > 0 && (
         <>
@@ -171,7 +172,7 @@ export function TeacherExamsPage() {
           {message && <p className="success-message" role="status">{message}</p>}
           {loading ? <p className="muted">Loading exams and roster…</p> : (
             <>
-              {availableDefinitions.length ? (
+              {selectedSection?.fullSectionAccess && availableDefinitions.length ? (
                 <form className="module-form exam-create-form exam-parent-form" onSubmit={addExam}>
                   <DropdownSelect
                     label="Available school-wide exam"
@@ -187,7 +188,11 @@ export function TeacherExamsPage() {
                   />
                   <button className="secondary-button" disabled={saving || selectedDefinitionId === null} type="submit">{saving ? "Saving…" : "Add exam to section"}</button>
                 </form>
-              ) : <p className="class-empty">{definitions.length ? "All school-wide exams are already active for this section." : "Ask an administrator to add school-wide exams first."}</p>}
+              ) : selectedSection?.fullSectionAccess ? (
+                <p className="class-empty">{definitions.length ? "All school-wide exams are already active for this section." : "Ask an administrator to add school-wide exams first."}</p>
+              ) : (
+                <p className="class-empty">Assigned subjects: {selectedSection?.assignedSubjects.join(", ") || "none"}.</p>
+              )}
               {!students.length && <p className="class-empty">No students are enrolled in this section yet.</p>}
               {exams.length > 0 && (
                 <DropdownSelect
@@ -203,7 +208,7 @@ export function TeacherExamsPage() {
                   wrapperClassName="teacher-exam-select"
                 />
               )}
-              {selectedExam && (
+              {selectedExam && selectedSection?.fullSectionAccess && (
                 <form className="module-form exam-create-form exam-subject-create-form" onSubmit={addSubject}>
                   <label className="module-field">Subject
                     <input maxLength={100} onChange={(event) => setSubject(event.target.value)} required value={subject} />

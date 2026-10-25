@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="018-allow-leave-attendance-status" author="scholora">
+        <sql>ALTER TABLE attendance_record DROP CONSTRAINT ck_attendance_record_status;</sql>
+        <sql>ALTER TABLE attendance_record ADD CONSTRAINT ck_attendance_record_status CHECK (status IN ('PRESENT', 'ABSENT', 'LATE', 'LEAVE'));</sql>
+    </changeSet>
+</databaseChangeLog>

@@ -5,6 +5,12 @@ export interface SessionUser {
   role: Role;
 }
 
+export interface AdminAccount {
+  id: number;
+  username: string;
+  role: Role;
+}
+
 export interface SchoolProfile {
   name: string;
   timezone: string;
@@ -25,8 +31,14 @@ export interface ClassDirectory {
   id: number;
   name: string;
   sections: Array<SchoolSection & {
+    classTeacher: { id: number; fullName: string } | null;
     students: Array<{ id: number; fullName: string; rollNumber: number | null }>;
     teachers: Array<{ id: number; fullName: string }>;
+    subjects: Array<{
+      id: number;
+      subject: string;
+      teacher: { id: number; fullName: string } | null;
+    }>;
   }>;
 }
 
@@ -39,10 +51,28 @@ export interface SchoolPerson {
   sectionName: string | null;
   className: string | null;
   rollNumber: number | null;
-  assignedSections: TeacherSection[];
+  assignedSections: TeacherAssignedSection[];
+  salary: number | null;
+  degree: string | null;
+  subjectExpertise: string[];
+  dateOfBirth?: string | null;
+  motherName?: string | null;
+  fatherName?: string | null;
+  emergencyContact?: string | null;
+  phone?: string | null;
 }
 
 export interface TeacherSection {
+  id: number;
+  name: string;
+  classId: number;
+  className: string;
+  fullSectionAccess: boolean;
+  assignedSubjects: string[];
+  classTeacher?: boolean;
+}
+
+export interface TeacherAssignedSection {
   id: number;
   name: string;
   classId: number;
@@ -62,10 +92,18 @@ export interface TeacherStudent {
   rollNumber: number | null;
 }
 
+export interface ClassTeacherStudent extends TeacherStudent {
+  dateOfBirth: string | null;
+  motherName: string | null;
+  fatherName: string | null;
+  emergencyContact: string | null;
+}
+
 export interface TeacherStudentProgress {
   studentId: number;
   studentName: string;
   recordedAttendance: number;
+  leaveCount: number;
   attendancePercentage: number;
   marks: Array<{
     examName: string;
@@ -78,6 +116,7 @@ export interface TeacherStudentProgress {
 
 export interface StudentProfile {
   displayName: string;
+  username: string;
   dateOfBirth: string | null;
   motherName: string | null;
   fatherName: string | null;
@@ -118,12 +157,13 @@ export interface StudentExamResult {
   }>;
 }
 
-export type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE";
+export type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "LEAVE";
 
 export interface StudentAttendanceHistory {
   presentCount: number;
   absentCount: number;
   lateCount: number;
+  leaveCount: number;
   recordedDays: number;
   attendancePercentage: number;
   history: Array<{ date: string; status: AttendanceStatus }>;

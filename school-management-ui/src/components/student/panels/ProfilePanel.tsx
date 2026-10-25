@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { getStudentProfile, updateStudentProfile } from "../../../services/api";
+import { updateMyCredentials } from "../../../services/api";
 import type { StudentProfile } from "../../../types/api";
+import { AccountCredentialsEditor } from "../../shared/AccountCredentialsEditor";
 
 export function StudentProfilePanel() {
 
@@ -43,31 +45,46 @@ export function StudentProfilePanel() {
       <p className="muted">Your profile details are managed by your school. You can update your emergency phone number.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
       {profile ? (
-        <form className="student-profile-form" onSubmit={save}>
-          <label>Display name
-            <input readOnly value={profile.displayName} />
-          </label>
-          <label>Date of birth
-            <input readOnly value={profile.dateOfBirth ?? "Not provided"} />
-          </label>
-          <label>Mother’s name
-            <input readOnly value={profile.motherName ?? "Not provided"} />
-          </label>
-          <label>Father’s name
-            <input readOnly value={profile.fatherName ?? "Not provided"} />
-          </label>
-          <label>Class
-            <input readOnly value={profile.className ?? "Not provided"} />
-          </label>
-          <label>Section
-            <input readOnly value={profile.sectionName ?? "Not provided"} />
-          </label>
-          <label>Emergency phone <span className="muted">(optional)</span>
-            <input maxLength={40} onChange={(event) => setProfile({ ...profile, emergencyContact: event.target.value })} value={profile.emergencyContact ?? ""} />
-          </label>
-          {message && <p className="success-message" role="status">{message}</p>}
-          <button className="secondary-button" disabled={saving} type="submit">{saving ? "Saving…" : "Save emergency phone"}</button>
-        </form>
+        <>
+          <form className="student-profile-form" onSubmit={save}>
+            <label>Display name
+              <input readOnly value={profile.displayName} />
+            </label>
+            <label>Date of birth
+              <input readOnly value={profile.dateOfBirth ?? "Not provided"} />
+            </label>
+            <label>Mother’s name
+              <input readOnly value={profile.motherName ?? "Not provided"} />
+            </label>
+            <label>Father’s name
+              <input readOnly value={profile.fatherName ?? "Not provided"} />
+            </label>
+            <label>Class
+              <input readOnly value={profile.className ?? "Not provided"} />
+            </label>
+            <label>Section
+              <input readOnly value={profile.sectionName ?? "Not provided"} />
+            </label>
+            <label>Emergency phone <span className="muted">(optional)</span>
+              <input maxLength={40} onChange={(event) => setProfile({ ...profile, emergencyContact: event.target.value })} value={profile.emergencyContact ?? ""} />
+            </label>
+            {message && <p className="success-message" role="status">{message}</p>}
+            <button className="secondary-button" disabled={saving} type="submit">{saving ? "Saving…" : "Save emergency phone"}</button>
+          </form>
+          <section className="profile-account-settings">
+            <h4>Login credentials</h4>
+            <p className="muted">Change your username or set a new password. Your current password is not required.</p>
+            <AccountCredentialsEditor
+              notifyCurrentUser
+              onSave={async (credentials) => {
+                const updated = await updateMyCredentials(credentials);
+                setProfile((current) => current ? { ...current, username: updated.username } : current);
+                return "Login credentials saved.";
+              }}
+              username={profile.username}
+            />
+          </section>
+        </>
       ) : !error ? <p className="muted">Loading your profile…</p> : null}
     </section>
   );

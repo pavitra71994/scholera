@@ -217,10 +217,17 @@ input:focus { border-color: #5c8a71; box-shadow: 0 0 0 3px rgba(63, 121, 89, .12
 .class-item-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .class-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .class-directory { margin-top: 18px; padding: 15px; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+.class-teacher-assignment { display: grid; grid-template-columns: minmax(180px, 1fr) auto; align-items: end; gap: 8px 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.class-teacher-assignment .muted { grid-column: 1 / -1; margin: 0; font-size: 11px; }
 .class-directory-section + .class-directory-section { margin-top: 17px; padding-top: 16px; border-top: 1px solid var(--line); }
 .class-directory-section h5 { margin: 0 0 12px; color: #29483a; font-size: 13px; }
 .class-directory-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .class-directory-columns h6 { margin: 0 0 8px; color: #75827b; font-size: 10px; letter-spacing: .7px; text-transform: uppercase; }
+.class-subject-teachers { margin-top: 15px; }
+.class-subject-teachers h6 { margin: 0 0 8px; color: #75827b; font-size: 10px; letter-spacing: .7px; text-transform: uppercase; }
+.class-subject-teacher { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(180px, 1fr); align-items: center; gap: 8px 12px; }
+.class-subject-teacher small { grid-column: 1 / -1; color: #75827b; }
+.class-subject-teacher-select { min-width: 0; }
 .directory-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .directory-list li { color: #52655b; font-size: 12px; }
 .class-item-header h4 { margin: 0 0 4px; font-size: 15px; }
@@ -297,6 +304,9 @@ input:focus { border-color: #5c8a71; box-shadow: 0 0 0 3px rgba(63, 121, 89, .12
 .exam-result-ranks { color: #75827b; font-size: 11px; }
 .exam-result-card .student-table-wrap { border: 0; border-top: 1px solid var(--line); border-radius: 0; }
 .student-profile-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 16px; }
+.profile-account-settings { display: grid; gap: 10px; margin-top: 28px; padding-top: 20px; border-top: 1px solid #e7ece7; }
+.profile-account-settings h4, .profile-account-settings p { margin: 0; }
+.profile-account-settings .student-profile-form { max-width: 680px; }
 .student-profile-form label { display: grid; gap: 8px; color: #354c41; font-size: 12px; font-weight: 600; }
 .student-profile-form input { min-height: 43px; font-size: 12px; }
 .student-profile-form input[readonly] { color: #68776f; background: #f7f9f6; }
@@ -557,6 +567,7 @@ input:focus { border-color: #5c8a71; box-shadow: 0 0 0 3px rgba(63, 121, 89, .12
   .class-actions { width: 100%; align-items: stretch; flex-direction: column; }
   .class-actions .section-create-form { flex-wrap: wrap; }
   .class-directory-columns { grid-template-columns: 1fr; }
+  .class-teacher-assignment, .class-subject-teacher { grid-template-columns: 1fr; }
   .directory-role-cards { grid-template-columns: 1fr; }
   .section-create-form { width: 100%; }
   .section-create-form input { flex: 1; min-width: 0; }
