@@ -89,7 +89,7 @@ public interface ExamMarkRepository extends JpaRepository<ExamMark, Long> {
     @Query("""
             select student.id as studentId, student.fullName as studentName,
                    schoolClass.id as classId, schoolClass.name as className, exam.academicYear as academicYear,
-                   sum(mark.obtainedMarks) as totalMarks
+                   sum(mark.obtainedMarks) as totalMarks, sum(examSubject.maximumMarks) as maximumMarks
             from ExamMark mark
             join mark.student student
             join mark.examSubject examSubject
@@ -97,7 +97,7 @@ public interface ExamMarkRepository extends JpaRepository<ExamMark, Long> {
             join exam.section section
             join section.schoolClass schoolClass
             group by student.id, student.fullName, schoolClass.id, schoolClass.name, exam.academicYear
-            order by schoolClass.name asc, exam.academicYear desc, sum(mark.obtainedMarks) desc, student.fullName asc
+            order by schoolClass.name asc, exam.academicYear desc, student.fullName asc
             """)
     List<LeaderboardTotal> findAllClassTotals();
 
@@ -105,7 +105,7 @@ public interface ExamMarkRepository extends JpaRepository<ExamMark, Long> {
             select student.id as studentId, student.fullName as studentName,
                    schoolClass.name as className, section.id as sectionId, section.name as sectionName,
                    exam.academicYear as academicYear,
-                   sum(mark.obtainedMarks) as totalMarks
+                   sum(mark.obtainedMarks) as totalMarks, sum(examSubject.maximumMarks) as maximumMarks
             from ExamMark mark
             join mark.student student
             join mark.examSubject examSubject
@@ -113,7 +113,7 @@ public interface ExamMarkRepository extends JpaRepository<ExamMark, Long> {
             join exam.section section
             join section.schoolClass schoolClass
             group by student.id, student.fullName, schoolClass.name, section.id, section.name, exam.academicYear
-            order by schoolClass.name asc, section.name asc, exam.academicYear desc, sum(mark.obtainedMarks) desc, student.fullName asc
+            order by schoolClass.name asc, section.name asc, exam.academicYear desc, student.fullName asc
             """)
     List<SectionLeaderboardTotal> findAllSectionTotals();
 
@@ -121,7 +121,7 @@ public interface ExamMarkRepository extends JpaRepository<ExamMark, Long> {
             select student.id as studentId, student.fullName as studentName,
                    schoolClass.id as classId, schoolClass.name as className, sectionSubject.subject as subject,
                    exam.academicYear as academicYear,
-                   sum(mark.obtainedMarks) as totalMarks
+                   sum(mark.obtainedMarks) as totalMarks, sum(examSubject.maximumMarks) as maximumMarks
             from ExamMark mark
             join mark.student student
             join mark.examSubject examSubject
@@ -130,7 +130,7 @@ public interface ExamMarkRepository extends JpaRepository<ExamMark, Long> {
             join section.schoolClass schoolClass
             join examSubject.sectionSubject sectionSubject
             group by student.id, student.fullName, schoolClass.id, schoolClass.name, sectionSubject.subject, exam.academicYear
-            order by schoolClass.name asc, exam.academicYear desc, sectionSubject.subject asc, sum(mark.obtainedMarks) desc, student.fullName asc
+            order by schoolClass.name asc, exam.academicYear desc, sectionSubject.subject asc, student.fullName asc
             """)
     List<SubjectLeaderboardTotal> findAllClassSubjectTotals();
 
@@ -141,6 +141,7 @@ public interface ExamMarkRepository extends JpaRepository<ExamMark, Long> {
         String getClassName();
         Integer getAcademicYear();
         BigDecimal getTotalMarks();
+        BigDecimal getMaximumMarks();
     }
 
     interface ExamResultTotal {
@@ -156,6 +157,7 @@ public interface ExamMarkRepository extends JpaRepository<ExamMark, Long> {
         String getSectionName();
         Integer getAcademicYear();
         BigDecimal getTotalMarks();
+        BigDecimal getMaximumMarks();
     }
 
     interface SubjectLeaderboardTotal {
@@ -166,5 +168,6 @@ public interface ExamMarkRepository extends JpaRepository<ExamMark, Long> {
         String getSubject();
         Integer getAcademicYear();
         BigDecimal getTotalMarks();
+        BigDecimal getMaximumMarks();
     }
 }

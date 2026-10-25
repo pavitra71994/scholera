@@ -21,7 +21,8 @@ function Leaderboard({
             <span className="leaderboard-rank">#{entry.rank}</span>
             <span className="leaderboard-name">{entry.studentName}</span>
             {entry.currentStudent && <span className="leaderboard-you">You</span>}
-            <strong>{entry.totalMarks} marks</strong>
+            <strong>{entry.percentage}%</strong>
+            <small>{entry.totalMarks} marks</small>
           </li>
         ))}</ol>
       ) : <p className="student-empty">No marks have been recorded for this group yet.</p>}
@@ -88,7 +89,7 @@ export function StudentToppersPanel() {
       <div className="section-heading">
         <div><p className="eyebrow">Celebrating achievement</p><h3>School Toppers</h3></div>
       </div>
-      <p className="muted">View class and section rankings for the selected academic year. Tied marks share the same rank.</p>
+      <p className="muted">View class and section rankings by percentage for the selected academic year. Tied percentages share the same rank.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="toppers-filters">
         <DropdownSelect
@@ -115,12 +116,12 @@ export function StudentToppersPanel() {
         <div className="leaderboard-grid toppers-results">
           <Leaderboard
             entries={classEntries}
-            subtitle="Total marks across the selected class"
+            subtitle="Ranked by percentage across the selected class"
             title={`${selectedClass?.name ?? "Class"} toppers`}
           />
           <Leaderboard
             entries={sectionEntries}
-            subtitle="Total marks across the selected section"
+            subtitle="Ranked by percentage across the selected section"
             title={`${selectedClass?.name ?? "Class"} · Section ${selectedSection?.name ?? ""} toppers`}
           />
         </div>

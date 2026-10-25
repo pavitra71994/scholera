@@ -176,6 +176,7 @@ export interface StudentLeaderboardEntry {
   subject: string | null;
   academicYear: number;
   totalMarks: number;
+  percentage: number;
   rank: number;
   currentStudent: boolean;
 }

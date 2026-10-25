@@ -68,6 +68,20 @@ export function PeopleManagement({ currentUsername = "" }: { currentUsername?: s
     return [...new Set(value.split(",").map((subject) => subject.trim()).filter(Boolean))];
   }
 
+  async function saveAccountCredentials(
+    accountId: number,
+    credentials: { username: string; newPassword: string | null },
+  ) {
+    const updated = await updateAdminAccountCredentials(accountId, credentials);
+    setAccounts((current) => current.map((account) => account.id === updated.id ? updated : account));
+    setPeople((current) => current.map((person) =>
+      person.username === accounts.find((account) => account.id === updated.id)?.username
+        ? { ...person, username: updated.username }
+        : person,
+    ));
+    return "Account credentials saved.";
+  }
+
   useEffect(() => {
     refreshPeople()
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Could not load students and teachers."))
@@ -403,6 +417,17 @@ export function PeopleManagement({ currentUsername = "" }: { currentUsername?: s
                       </select>
                       <button className="quiet-button" disabled={saving} onClick={() => void saveAssignments(person.id)} type="button">Save</button>
                       <button className="text-button" onClick={() => setEditingTeacherId(null)} type="button">Cancel</button>
+                      <div className="profile-account-settings">
+                        <h4>Login credentials</h4>
+                        <AccountCredentialsEditor
+                          onSave={(credentials) => {
+                            const account = accounts.find((item) => item.username === person.username);
+                            if (!account) throw new Error("Could not find this teacher account.");
+                            return saveAccountCredentials(account.id, credentials);
+                          }}
+                          username={person.username}
+                        />
+                      </div>
                     </div>
                   ) : person.role === "TEACHER" ? (
                     <div className="assignment-summary">
@@ -456,6 +481,17 @@ export function PeopleManagement({ currentUsername = "" }: { currentUsername?: s
                                   <SectionSelect label="Class / section" sections={sections} value={studentSectionId} onChange={setStudentSectionId} />
                                   <button className="quiet-button" disabled={saving} onClick={() => void saveStudentProfile(person.id)} type="button">Save student</button>
                                   <button className="text-button" onClick={() => setEditingStudentId(null)} type="button">Cancel</button>
+                                  <div className="profile-account-settings">
+                                    <h4>Login credentials</h4>
+                                    <AccountCredentialsEditor
+                                      onSave={(credentials) => {
+                                        const account = accounts.find((item) => item.username === person.username);
+                                        if (!account) throw new Error("Could not find this student account.");
+                                        return saveAccountCredentials(account.id, credentials);
+                                      }}
+                                      username={person.username}
+                                    />
+                                  </div>
                                 </div>
                               </td>
                             </tr>
@@ -471,17 +507,17 @@ export function PeopleManagement({ currentUsername = "" }: { currentUsername?: s
           ) : <p className="class-empty">No {directoryRole === "STUDENT" ? "students" : "teachers"} match your search.</p>}
         </section>
       )}
-      <section className="people-directory" aria-label="Account credentials">
+      <section className="people-directory" aria-label="Administrator credentials">
         <div className="section-heading">
-          <div><p className="eyebrow">Account access</p><h4>Username &amp; password</h4></div>
-          <span className="status-pill">{accounts.length} {accounts.length === 1 ? "account" : "accounts"}</span>
+          <div><p className="eyebrow">Account access</p><h4>Administrator credentials</h4></div>
+          <span className="status-pill">{accounts.filter((account) => account.role === "ADMIN").length} administrator accounts</span>
         </div>
-        <p className="muted">Manage login names and reset passwords for administrators, teachers, and students. Leave a new password blank to keep the existing one.</p>
-        {loading ? <p className="muted">Loading accounts…</p> : accounts.length ? (
+        <p className="muted">Manage administrator login names and reset passwords. Student and teacher credentials are edited alongside their profiles above.</p>
+        {loading ? <p className="muted">Loading accounts…</p> : accounts.some((account) => account.role === "ADMIN") ? (
           <div className="module-table-wrap">
             <table className="module-table">
               <thead><tr><th>Username</th><th>Role</th><th>Credentials</th></tr></thead>
-              <tbody>{accounts.map((account) => (
+              <tbody>{accounts.filter((account) => account.role === "ADMIN").map((account) => (
                 <Fragment key={account.id}>
                   <tr>
                     <td>{account.username}</td>
@@ -500,11 +536,7 @@ export function PeopleManagement({ currentUsername = "" }: { currentUsername?: s
                         <AccountCredentialsEditor
                           compact
                           notifyCurrentUser={account.username === currentUsername}
-                          onSave={async (credentials) => {
-                            const updated = await updateAdminAccountCredentials(account.id, credentials);
-                            setAccounts((current) => current.map((item) => item.id === updated.id ? updated : item));
-                            return "Account credentials saved.";
-                          }}
+                          onSave={(credentials) => saveAccountCredentials(account.id, credentials)}
                           username={account.username}
                         />
                       </td>
@@ -514,7 +546,7 @@ export function PeopleManagement({ currentUsername = "" }: { currentUsername?: s
               ))}</tbody>
             </table>
           </div>
-        ) : <p className="class-empty">No accounts found.</p>}
+        ) : <p className="class-empty">No administrator accounts found.</p>}
       </section>
     </section>
   );

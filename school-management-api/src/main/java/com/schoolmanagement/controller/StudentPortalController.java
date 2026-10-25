@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -233,27 +234,40 @@ public class StudentPortalController {
     private List<LeaderboardEntry> rankedClassTotals(
             List<ExamMarkRepository.LeaderboardTotal> totals,
             Long currentStudentId) {
+        Comparator<ExamMarkRepository.LeaderboardTotal> order = Comparator
+                .comparing(ExamMarkRepository.LeaderboardTotal::getClassName)
+                .thenComparing(ExamMarkRepository.LeaderboardTotal::getAcademicYear, Comparator.reverseOrder())
+                .thenComparing((left, right) -> comparePercentage(
+                        right.getTotalMarks(), right.getMaximumMarks(),
+                        left.getTotalMarks(), left.getMaximumMarks()))
+                .thenComparing(ExamMarkRepository.LeaderboardTotal::getStudentName)
+                .thenComparing(ExamMarkRepository.LeaderboardTotal::getStudentId);
         List<LeaderboardEntry> result = new ArrayList<>();
         Long groupId = null;
         Integer currentYear = null;
         BigDecimal previousMarks = null;
+        BigDecimal previousMaximum = null;
         int position = 0;
         int rank = 0;
-        for (ExamMarkRepository.LeaderboardTotal row : totals) {
+        for (ExamMarkRepository.LeaderboardTotal row : totals.stream().sorted(order).toList()) {
             if (!row.getClassId().equals(groupId) || !row.getAcademicYear().equals(currentYear)) {
                 groupId = row.getClassId();
                 currentYear = row.getAcademicYear();
                 previousMarks = null;
+                previousMaximum = null;
                 position = 0;
                 rank = 0;
             }
             position++;
-            if (previousMarks == null || row.getTotalMarks().compareTo(previousMarks) != 0) {
+            if (previousMarks == null || comparePercentage(
+                    row.getTotalMarks(), row.getMaximumMarks(), previousMarks, previousMaximum) != 0) {
                 previousMarks = row.getTotalMarks();
+                previousMaximum = row.getMaximumMarks();
                 rank = position;
             }
             result.add(new LeaderboardEntry(
-                    row.getStudentName(), row.getClassName(), null, null, row.getAcademicYear(), row.getTotalMarks(), rank,
+                    row.getStudentName(), row.getClassName(), null, null, row.getAcademicYear(), row.getTotalMarks(),
+                    percentage(row.getTotalMarks(), row.getMaximumMarks()), rank,
                     row.getStudentId().equals(currentStudentId)));
         }
         return result;
@@ -262,28 +276,42 @@ public class StudentPortalController {
     private List<LeaderboardEntry> rankedSectionTotals(
             List<ExamMarkRepository.SectionLeaderboardTotal> totals,
             Long currentStudentId) {
+        Comparator<ExamMarkRepository.SectionLeaderboardTotal> order = Comparator
+                .comparing(ExamMarkRepository.SectionLeaderboardTotal::getClassName)
+                .thenComparing(ExamMarkRepository.SectionLeaderboardTotal::getSectionName)
+                .thenComparing(ExamMarkRepository.SectionLeaderboardTotal::getAcademicYear, Comparator.reverseOrder())
+                .thenComparing((left, right) -> comparePercentage(
+                        right.getTotalMarks(), right.getMaximumMarks(),
+                        left.getTotalMarks(), left.getMaximumMarks()))
+                .thenComparing(ExamMarkRepository.SectionLeaderboardTotal::getStudentName)
+                .thenComparing(ExamMarkRepository.SectionLeaderboardTotal::getStudentId);
         List<LeaderboardEntry> result = new ArrayList<>();
         Long groupId = null;
         Integer currentYear = null;
         BigDecimal previousMarks = null;
+        BigDecimal previousMaximum = null;
         int position = 0;
         int rank = 0;
-        for (ExamMarkRepository.SectionLeaderboardTotal row : totals) {
+        for (ExamMarkRepository.SectionLeaderboardTotal row : totals.stream().sorted(order).toList()) {
             if (!row.getSectionId().equals(groupId) || !row.getAcademicYear().equals(currentYear)) {
                 groupId = row.getSectionId();
                 currentYear = row.getAcademicYear();
                 previousMarks = null;
+                previousMaximum = null;
                 position = 0;
                 rank = 0;
             }
             position++;
-            if (previousMarks == null || row.getTotalMarks().compareTo(previousMarks) != 0) {
+            if (previousMarks == null || comparePercentage(
+                    row.getTotalMarks(), row.getMaximumMarks(), previousMarks, previousMaximum) != 0) {
                 previousMarks = row.getTotalMarks();
+                previousMaximum = row.getMaximumMarks();
                 rank = position;
             }
             result.add(new LeaderboardEntry(
                     row.getStudentName(), row.getClassName(), row.getSectionName(), null, row.getAcademicYear(),
-                    row.getTotalMarks(), rank, row.getStudentId().equals(currentStudentId)));
+                    row.getTotalMarks(), percentage(row.getTotalMarks(), row.getMaximumMarks()), rank,
+                    row.getStudentId().equals(currentStudentId)));
         }
         return result;
     }
@@ -291,30 +319,57 @@ public class StudentPortalController {
     private List<LeaderboardEntry> rankedSubjectTotals(
             List<ExamMarkRepository.SubjectLeaderboardTotal> totals,
             Long currentStudentId) {
+        Comparator<ExamMarkRepository.SubjectLeaderboardTotal> order = Comparator
+                .comparing(ExamMarkRepository.SubjectLeaderboardTotal::getClassName)
+                .thenComparing(ExamMarkRepository.SubjectLeaderboardTotal::getAcademicYear, Comparator.reverseOrder())
+                .thenComparing(ExamMarkRepository.SubjectLeaderboardTotal::getSubject, String.CASE_INSENSITIVE_ORDER)
+                .thenComparing((left, right) -> comparePercentage(
+                        right.getTotalMarks(), right.getMaximumMarks(),
+                        left.getTotalMarks(), left.getMaximumMarks()))
+                .thenComparing(ExamMarkRepository.SubjectLeaderboardTotal::getStudentName)
+                .thenComparing(ExamMarkRepository.SubjectLeaderboardTotal::getStudentId);
         List<LeaderboardEntry> result = new ArrayList<>();
         String groupKey = null;
         BigDecimal previousMarks = null;
+        BigDecimal previousMaximum = null;
         int position = 0;
         int rank = 0;
-        for (ExamMarkRepository.SubjectLeaderboardTotal row : totals) {
+        for (ExamMarkRepository.SubjectLeaderboardTotal row : totals.stream().sorted(order).toList()) {
             String rowGroupKey = row.getClassId() + "\u0000" + row.getSubject() + "\u0000" + row.getAcademicYear();
             if (!rowGroupKey.equals(groupKey)) {
                 groupKey = rowGroupKey;
                 previousMarks = null;
+                previousMaximum = null;
                 position = 0;
                 rank = 0;
             }
             position++;
-            if (previousMarks == null || row.getTotalMarks().compareTo(previousMarks) != 0) {
+            if (previousMarks == null || comparePercentage(
+                    row.getTotalMarks(), row.getMaximumMarks(), previousMarks, previousMaximum) != 0) {
                 previousMarks = row.getTotalMarks();
+                previousMaximum = row.getMaximumMarks();
                 rank = position;
             }
             result.add(new LeaderboardEntry(
                     row.getStudentName(), row.getClassName(), null, row.getSubject(), row.getAcademicYear(),
-                    row.getTotalMarks(), rank,
+                    row.getTotalMarks(), percentage(row.getTotalMarks(), row.getMaximumMarks()), rank,
                     row.getStudentId().equals(currentStudentId)));
         }
         return result;
+    }
+
+    private int comparePercentage(
+            BigDecimal firstMarks,
+            BigDecimal firstMaximum,
+            BigDecimal secondMarks,
+            BigDecimal secondMaximum) {
+        return firstMarks.multiply(secondMaximum).compareTo(secondMarks.multiply(firstMaximum));
+    }
+
+    private BigDecimal percentage(BigDecimal marks, BigDecimal maximum) {
+        return maximum.signum() == 0
+                ? BigDecimal.ZERO.setScale(2)
+                : marks.multiply(BigDecimal.valueOf(100)).divide(maximum, 2, RoundingMode.HALF_UP);
     }
 
     private String normalizeOptional(String value) {
@@ -400,6 +455,7 @@ public class StudentPortalController {
             String subject,
             Integer academicYear,
             BigDecimal totalMarks,
+            BigDecimal percentage,
             int rank,
             boolean currentStudent) {
     }

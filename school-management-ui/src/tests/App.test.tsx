@@ -308,11 +308,25 @@ describe("people directory", () => {
     };
     vi.mocked(getClasses).mockResolvedValue([{ id: 1, name: "Grade 5", sections: [{ id: 10, name: "A" }] }]);
     vi.mocked(getPeople).mockImplementation(async (role) => role === "STUDENT" ? [student] : []);
+    vi.mocked(getAdminAccounts).mockResolvedValue([{ id: 12, username: "ari", role: "STUDENT" }]);
     vi.mocked(updateStudentDetails).mockResolvedValue({ ...student, fullName: "Ari Updated" });
+    vi.mocked(updateAdminAccountCredentials).mockResolvedValue({
+      id: 12,
+      username: "ari.new",
+      role: "STUDENT",
+    });
 
     render(<PeopleManagement />);
     fireEvent.click(await screen.findByRole("button", { name: /students/i }));
     fireEvent.click(await screen.findByRole("button", { name: "Edit profile" }));
+    expect(screen.getByRole("heading", { name: "Login credentials" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Login username"), { target: { value: "ari.new" } });
+    fireEvent.change(screen.getByLabelText("New password (optional)"), { target: { value: "student-new-password" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save credentials" }));
+    await waitFor(() => expect(updateAdminAccountCredentials).toHaveBeenCalledWith(12, {
+      username: "ari.new",
+      newPassword: "student-new-password",
+    }));
     fireEvent.change(screen.getAllByLabelText("Full name")[1], {
       target: { value: "Ari Updated" },
     });
@@ -328,31 +342,27 @@ describe("people directory", () => {
     }));
   });
 
-  it("lets an admin rename or reset any listed account", async () => {
+  it("lets an admin rename or reset administrator accounts in the admin credentials section", async () => {
     vi.mocked(getClasses).mockResolvedValue([]);
     vi.mocked(getPeople).mockResolvedValue([]);
     vi.mocked(getAdminAccounts).mockResolvedValue([
       { id: 71, username: "main-admin", role: "ADMIN" },
-      { id: 72, username: "class-teacher", role: "TEACHER" },
-      { id: 73, username: "student-one", role: "STUDENT" },
     ]);
     vi.mocked(updateAdminAccountCredentials).mockResolvedValue({
-      id: 72,
-      username: "teacher-updated",
-      role: "TEACHER",
+      id: 71,
+      username: "admin-updated",
+      role: "ADMIN",
     });
 
     render(<PeopleManagement />);
     expect(await screen.findByText("main-admin")).toBeInTheDocument();
-    expect(screen.getByText("class-teacher")).toBeInTheDocument();
-    expect(screen.getByText("student-one")).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: "Edit credentials" })[1]);
-    fireEvent.change(screen.getAllByLabelText("Username")[1], { target: { value: "teacher-updated" } });
+    fireEvent.click(screen.getByRole("button", { name: "Edit credentials" }));
+    fireEvent.change(screen.getByLabelText("Login username"), { target: { value: "admin-updated" } });
     fireEvent.change(screen.getByLabelText("New password (optional)"), { target: { value: "changed-password" } });
     fireEvent.click(screen.getByRole("button", { name: "Save credentials" }));
 
-    await waitFor(() => expect(updateAdminAccountCredentials).toHaveBeenCalledWith(72, {
-      username: "teacher-updated",
+    await waitFor(() => expect(updateAdminAccountCredentials).toHaveBeenCalledWith(71, {
+      username: "admin-updated",
       newPassword: "changed-password",
     }));
     expect(await screen.findByRole("status")).toHaveTextContent("Account credentials saved.");
@@ -559,16 +569,16 @@ describe("student portal", () => {
     });
     vi.mocked(getStudentToppers).mockResolvedValue({
       classToppers: [
-        { studentName: "Taylor Student", className: "Class 1", sectionName: null, subject: null, academicYear: 2026, totalMarks: 90, rank: 1, currentStudent: true },
-        { studentName: "Alex Student", className: "Class 1", sectionName: null, subject: null, academicYear: 2026, totalMarks: 80, rank: 2, currentStudent: false },
-        { studentName: "Sam Student", className: "Class 2", sectionName: null, subject: null, academicYear: 2026, totalMarks: 95, rank: 1, currentStudent: false },
-        { studentName: "2025 Topper", className: "Class 1", sectionName: null, subject: null, academicYear: 2025, totalMarks: 85, rank: 1, currentStudent: false },
+        { studentName: "Taylor Student", className: "Class 1", sectionName: null, subject: null, academicYear: 2026, totalMarks: 90, percentage: 90, rank: 1, currentStudent: true },
+        { studentName: "Alex Student", className: "Class 1", sectionName: null, subject: null, academicYear: 2026, totalMarks: 80, percentage: 80, rank: 2, currentStudent: false },
+        { studentName: "Sam Student", className: "Class 2", sectionName: null, subject: null, academicYear: 2026, totalMarks: 95, percentage: 95, rank: 1, currentStudent: false },
+        { studentName: "2025 Topper", className: "Class 1", sectionName: null, subject: null, academicYear: 2025, totalMarks: 85, percentage: 85, rank: 1, currentStudent: false },
       ],
       sectionToppers: [
-        { studentName: "Taylor Student", className: "Class 1", sectionName: "A", subject: null, academicYear: 2026, totalMarks: 90, rank: 1, currentStudent: true },
-        { studentName: "Dana Student", className: "Class 1", sectionName: "B", subject: null, academicYear: 2026, totalMarks: 87, rank: 1, currentStudent: false },
-        { studentName: "Sam Student", className: "Class 2", sectionName: "A", subject: null, academicYear: 2026, totalMarks: 95, rank: 1, currentStudent: false },
-        { studentName: "2025 Topper", className: "Class 1", sectionName: "A", subject: null, academicYear: 2025, totalMarks: 85, rank: 1, currentStudent: false },
+        { studentName: "Taylor Student", className: "Class 1", sectionName: "A", subject: null, academicYear: 2026, totalMarks: 90, percentage: 90, rank: 1, currentStudent: true },
+        { studentName: "Dana Student", className: "Class 1", sectionName: "B", subject: null, academicYear: 2026, totalMarks: 87, percentage: 87, rank: 1, currentStudent: false },
+        { studentName: "Sam Student", className: "Class 2", sectionName: "A", subject: null, academicYear: 2026, totalMarks: 95, percentage: 95, rank: 1, currentStudent: false },
+        { studentName: "2025 Topper", className: "Class 1", sectionName: "A", subject: null, academicYear: 2025, totalMarks: 85, percentage: 85, rank: 1, currentStudent: false },
       ],
       subjectToppers: [],
     });
@@ -596,7 +606,7 @@ describe("student portal", () => {
       emergencyContact: "555-0101",
     }));
     vi.mocked(updateMyCredentials).mockResolvedValue({ username: "learner-updated", role: "STUDENT" });
-    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "learner-updated" } });
+    fireEvent.change(screen.getByLabelText("Login username"), { target: { value: "learner-updated" } });
     fireEvent.click(screen.getByRole("button", { name: "Save credentials" }));
     await waitFor(() => expect(updateMyCredentials).toHaveBeenCalledWith({
       username: "learner-updated",
@@ -716,7 +726,7 @@ describe("teacher portal", () => {
 
     fireEvent.click(screen.getByRole("link", { name: /teaching workspace/i }));
     fireEvent.click(await screen.findByRole("link", { name: /open my profile/i }));
-    expect(await screen.findByLabelText("Username")).toHaveValue("jordan");
+    expect(await screen.findByLabelText("Login username")).toHaveValue("jordan");
     fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Jordan Updated" } });
     fireEvent.change(screen.getByLabelText(/Phone/), { target: { value: "555-0112" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -725,7 +735,7 @@ describe("teacher portal", () => {
       phone: "555-0112",
     }));
     vi.mocked(updateMyCredentials).mockResolvedValue({ username: "jordan-updated", role: "TEACHER" });
-    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "jordan-updated" } });
+    fireEvent.change(screen.getByLabelText("Login username"), { target: { value: "jordan-updated" } });
     fireEvent.click(screen.getByRole("button", { name: "Save credentials" }));
     await waitFor(() => expect(updateMyCredentials).toHaveBeenCalledWith({
       username: "jordan-updated",

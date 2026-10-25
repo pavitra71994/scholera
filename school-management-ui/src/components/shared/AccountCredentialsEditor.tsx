@@ -43,7 +43,7 @@ export function AccountCredentialsEditor({
 
   return (
     <form className={compact ? "assignment-editor" : "student-profile-form"} onSubmit={submit}>
-      <label className={compact ? "module-field" : undefined}>Username
+      <label className={compact ? "module-field" : undefined}>Login username
         <input
           autoComplete="username"
           maxLength={100}

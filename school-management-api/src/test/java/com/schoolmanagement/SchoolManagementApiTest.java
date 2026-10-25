@@ -639,7 +639,6 @@ class SchoolManagementApiTest {
                 new String[]{"PRESENT", "ABSENT", "LATE"});
         saveStudentPortalAttendance(admin, sectionId, "2026-10-24", studentIds,
                 new String[]{"LEAVE", "PRESENT", "ABSENT"});
-
         mvc.perform(get("/api/v1/student/profile").with(user(usernames[2]).roles("STUDENT")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName", is(names[2])))
@@ -702,20 +701,61 @@ class SchoolManagementApiTest {
                 .andExpect(jsonPath("$.leaveCount", is(1)))
                 .andExpect(jsonPath("$.attendancePercentage", is(100.0)))
                 .andExpect(jsonPath("$.history.length()", is(2)));
+        var percentageTopperResponse = mvc.perform(post("/api/v1/people")
+                        .with(admin)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Percentage Topper","username":"percentage-topper","password":"long-enough-test-password","role":"STUDENT","sectionId":%d,"dateOfBirth":"2009-04-12","motherName":"Parent Name","fatherName":"Guardian Name"}
+                                """.formatted(sectionId)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long percentageTopperId = ((Number) com.jayway.jsonpath.JsonPath.read(
+                percentageTopperResponse.getResponse().getContentAsString(), "$.id")).longValue();
+        long percentageExamDefinitionId = createTestExamDefinition(admin, "Percentage Review");
+        var percentageExamResponse = mvc.perform(post("/api/v1/exams")
+                        .with(admin)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"sectionId":%d,"examDefinitionId":%d}
+                                """.formatted(sectionId, percentageExamDefinitionId)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long percentageSubjectId = ((Number) com.jayway.jsonpath.JsonPath.read(
+                percentageExamResponse.getResponse().getContentAsString(), "$.subjects[0].id")).longValue();
+        mvc.perform(post("/api/v1/exams/subjects/" + percentageSubjectId + "/marks")
+                        .with(admin)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"marks":[{"studentId":%d,"obtainedMarks":0},{"studentId":%d,"obtainedMarks":0},{"studentId":%d,"obtainedMarks":0},{"studentId":%d,"obtainedMarks":95}]}
+                                """.formatted(studentIds[0], studentIds[1], studentIds[2], percentageTopperId)))
+                .andExpect(status().isOk());
         mvc.perform(get("/api/v1/student/toppers").with(user(usernames[2]).roles("STUDENT")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.classToppers.length()", is(3)))
-                .andExpect(jsonPath("$.classToppers[0].totalMarks", is(120.0)))
-                .andExpect(jsonPath("$.classToppers[1].rank", is(1)))
-                .andExpect(jsonPath("$.classToppers[2].rank", is(3)))
+                .andExpect(jsonPath("$.classToppers.length()", is(4)))
+                .andExpect(jsonPath("$.classToppers[0].studentName", is("Percentage Topper")))
+                .andExpect(jsonPath("$.classToppers[0].totalMarks", is(95.0)))
+                .andExpect(jsonPath("$.classToppers[0].percentage", is(95.0)))
+                .andExpect(jsonPath("$.classToppers[0].rank", is(1)))
+                .andExpect(jsonPath("$.classToppers[1].totalMarks", is(120.0)))
+                .andExpect(jsonPath("$.classToppers[1].percentage", is(48.0)))
+                .andExpect(jsonPath("$.classToppers[1].rank", is(2)))
+                .andExpect(jsonPath("$.classToppers[3].rank", is(4)))
                 .andExpect(jsonPath("$.classToppers[0].currentStudent", is(false)))
-                .andExpect(jsonPath("$.classToppers[2].currentStudent", is(true)))
-                .andExpect(jsonPath("$.sectionToppers.length()", is(3)))
-                .andExpect(jsonPath("$.sectionToppers[2].rank", is(3)))
-                .andExpect(jsonPath("$.sectionToppers[2].currentStudent", is(true)))
-                .andExpect(jsonPath("$.subjectToppers.length()", is(6)))
-                .andExpect(jsonPath("$.subjectToppers[2].rank", is(3)))
-                .andExpect(jsonPath("$.subjectToppers[2].currentStudent", is(true)));
+                .andExpect(jsonPath("$.sectionToppers.length()", is(4)))
+                .andExpect(jsonPath("$.sectionToppers[0].studentName", is("Percentage Topper")))
+                .andExpect(jsonPath("$.sectionToppers[0].percentage", is(95.0)))
+                .andExpect(jsonPath("$.sectionToppers[0].rank", is(1)))
+                .andExpect(jsonPath("$.sectionToppers[3].rank", is(4)))
+                .andExpect(jsonPath("$.sectionToppers[3].currentStudent", is(true)))
+                .andExpect(jsonPath("$.subjectToppers.length()", is(7)))
+                .andExpect(jsonPath("$.subjectToppers[0].studentName", is("Percentage Topper")))
+                .andExpect(jsonPath("$.subjectToppers[0].percentage", is(95.0)))
+                .andExpect(jsonPath("$.subjectToppers[0].rank", is(1)))
+                .andExpect(jsonPath("$.subjectToppers[3].rank", is(4)))
+                .andExpect(jsonPath("$.subjectToppers[3].currentStudent", is(true)));
         mvc.perform(get("/api/v1/student/toppers").with(admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.classToppers[0].currentStudent", is(false)));
