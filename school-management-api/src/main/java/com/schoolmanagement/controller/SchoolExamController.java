@@ -2,6 +2,7 @@ package com.schoolmanagement.controller;
 
 import com.schoolmanagement.model.*;
 import com.schoolmanagement.repository.*;
+import com.schoolmanagement.service.SchoolExamProvisioningService;
 
 import com.schoolmanagement.security.Role;
 import jakarta.validation.Valid;
@@ -11,6 +12,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -34,31 +37,69 @@ import java.util.List;
 @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
 public class SchoolExamController {
     private final SchoolExamRepository exams;
+    private final SchoolExamDefinitionRepository definitions;
+    private final SchoolExamSubjectRepository subjects;
     private final ExamMarkRepository marks;
     private final SchoolSectionRepository sections;
     private final SchoolPersonRepository people;
     private final TeacherSectionAssignmentRepository assignments;
+    private final SchoolSectionSubjectRepository sectionSubjects;
+    private final SchoolExamProvisioningService examProvisioning;
 
     public SchoolExamController(
             SchoolExamRepository exams,
+            SchoolExamDefinitionRepository definitions,
+            SchoolExamSubjectRepository subjects,
             ExamMarkRepository marks,
             SchoolSectionRepository sections,
             SchoolPersonRepository people,
-            TeacherSectionAssignmentRepository assignments) {
+            TeacherSectionAssignmentRepository assignments,
+            SchoolSectionSubjectRepository sectionSubjects,
+            SchoolExamProvisioningService examProvisioning) {
         this.exams = exams;
+        this.definitions = definitions;
+        this.subjects = subjects;
         this.marks = marks;
         this.sections = sections;
         this.people = people;
         this.assignments = assignments;
+        this.sectionSubjects = sectionSubjects;
+        this.examProvisioning = examProvisioning;
     }
 
     @GetMapping
     @Transactional(readOnly = true)
     public List<ExamResponse> getExams(Authentication authentication, @RequestParam Long sectionId) {
         requireSectionAccess(sectionId, authentication);
-        return exams.findAllBySection_IdOrderByNameAscSubjectAsc(sectionId).stream()
+        return exams.findAllBySection_IdOrderByAcademicYearDescNameAsc(sectionId).stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @GetMapping("/definitions")
+    @Transactional(readOnly = true)
+    public List<ExamDefinitionResponse> getDefinitions() {
+        return definitions.findAllByOrderByAcademicYearDescNameAsc().stream()
+                .map(definition -> new ExamDefinitionResponse(
+                        definition.getId(), definition.getName(), definition.getAcademicYear()))
+                .toList();
+    }
+
+    @PostMapping("/definitions")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public ExamDefinitionResponse createDefinition(
+            @Valid @RequestBody CreateExamDefinitionRequest request) {
+        String name = request.name().trim();
+        if (definitions.existsByNameIgnoreCaseAndAcademicYear(name, request.academicYear())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "An exam with this name already exists for the school and year.");
+        }
+        SchoolExamDefinition definition = definitions.save(
+                new SchoolExamDefinition(name, request.academicYear()));
+        examProvisioning.provisionDefinitionForAllSections(definition);
+        return new ExamDefinitionResponse(definition.getId(), definition.getName(), definition.getAcademicYear());
     }
 
     @PostMapping
@@ -68,19 +109,76 @@ public class SchoolExamController {
         requireSectionAccess(request.sectionId(), authentication);
         SchoolSection section = sections.findById(request.sectionId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Section not found."));
-        SchoolExam exam = exams.save(new SchoolExam(
-                section, request.name().trim(), request.subject().trim(), request.maximumMarks()));
-        return toResponse(exam);
+        SchoolExamDefinition definition = definitions.findById(request.examDefinitionId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "School exam not found."));
+        return toResponse(examProvisioning.provisionExam(section, definition));
     }
 
-    @PostMapping("/{examId}/marks")
+    @GetMapping("/sections/{sectionId}/subjects")
+    @Transactional(readOnly = true)
+    public List<SectionSubjectResponse> getSectionSubjects(
+            Authentication authentication, @PathVariable Long sectionId) {
+        requireSectionAccess(sectionId, authentication);
+        return sectionSubjects.findAllBySection_IdOrderBySubjectAsc(sectionId).stream()
+                .map(this::toSectionSubjectResponse)
+                .toList();
+    }
+
+    @PostMapping("/sections/{sectionId}/subjects")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public SectionSubjectResponse createSectionSubject(
+            Authentication authentication,
+            @PathVariable Long sectionId,
+            @Valid @RequestBody CreateExamSubjectRequest request) {
+        requireSectionAccess(sectionId, authentication);
+        String subjectName = request.subject().trim();
+        if (sectionSubjects.existsBySection_IdAndSubjectIgnoreCase(sectionId, subjectName)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This subject already exists for the section.");
+        }
+        SchoolSection section = sections.findById(sectionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Section not found."));
+        SchoolSectionSubject sectionSubject = sectionSubjects.save(new SchoolSectionSubject(
+                section, subjectName, request.maximumMarks()));
+        examProvisioning.addSectionSubjectToExistingExams(
+                sectionSubject, exams.findAllBySection_Id(sectionId));
+        return toSectionSubjectResponse(sectionSubject);
+    }
+
+    @PostMapping("/{examId}/subjects")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public ExamSubjectResponse createSubject(
+            Authentication authentication,
+            @PathVariable Long examId,
+            @Valid @RequestBody CreateExamSubjectRequest request) {
+        SchoolExam exam = exams.findById(examId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Exam not found."));
+        requireSectionAccess(exam.getSection().getId(), authentication);
+        String subjectName = request.subject().trim();
+        SchoolSectionSubject sectionSubject = sectionSubjects
+                .findBySection_IdAndSubjectIgnoreCase(exam.getSection().getId(), subjectName)
+                .orElseGet(() -> {
+                    SchoolSectionSubject created = sectionSubjects.save(new SchoolSectionSubject(
+                            exam.getSection(), subjectName, request.maximumMarks()));
+                    examProvisioning.addSectionSubjectToExistingExams(
+                            created, exams.findAllBySection_Id(exam.getSection().getId()));
+                    return created;
+                });
+        return toSubjectResponse(subjects.findByExam_IdAndSectionSubject_Id(examId, sectionSubject.getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR, "Subject was not provisioned for this exam.")));
+    }
+
+    @PostMapping("/subjects/{subjectId}/marks")
     @Transactional
     public List<MarkResponse> saveMarks(
             Authentication authentication,
-            @PathVariable Long examId,
+            @PathVariable Long subjectId,
             @Valid @RequestBody SaveMarksRequest request) {
-        SchoolExam exam = exams.findById(examId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Exam not found."));
+        SchoolExamSubject examSubject = subjects.findById(subjectId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Exam subject not found."));
+        SchoolExam exam = examSubject.getExam();
         requireSectionAccess(exam.getSection().getId(), authentication);
         List<SchoolPerson> students = people.findAllBySection_IdAndAccount_RoleOrderByFullName(
                 exam.getSection().getId(), Role.STUDENT);
@@ -98,25 +196,40 @@ public class SchoolExamController {
             if (student == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Every student must belong to the exam section.");
             }
-            if (entry.obtainedMarks().compareTo(exam.getMaximumMarks()) > 0) {
+            if (entry.obtainedMarks().compareTo(examSubject.getMaximumMarks()) > 0) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A score cannot exceed the maximum marks.");
             }
-            ExamMark mark = marks.findByExam_IdAndStudent_Id(examId, entry.studentId())
-                    .orElseGet(() -> new ExamMark(exam, student, entry.obtainedMarks()));
+            ExamMark mark = marks.findByExamSubject_IdAndStudent_Id(subjectId, entry.studentId())
+                    .orElseGet(() -> new ExamMark(examSubject, student, entry.obtainedMarks()));
             mark.updateMarks(entry.obtainedMarks());
             marks.save(mark);
         }
-        return marks.findAllByExam_Id(examId).stream().map(this::toMarkResponse).toList();
+        return marks.findAllByExamSubject_Id(subjectId).stream().map(this::toMarkResponse).toList();
     }
 
     private ExamResponse toResponse(SchoolExam exam) {
         return new ExamResponse(
                 exam.getId(),
                 exam.getSection().getId(),
+                exam.getDefinition().getId(),
                 exam.getName(),
-                exam.getSubject(),
-                exam.getMaximumMarks(),
-                marks.findAllByExam_Id(exam.getId()).stream().map(this::toMarkResponse).toList());
+                exam.getAcademicYear(),
+                subjects.findAllByExam_IdOrderBySectionSubject_SubjectAsc(exam.getId()).stream()
+                        .map(this::toSubjectResponse)
+                        .toList());
+    }
+
+    private ExamSubjectResponse toSubjectResponse(SchoolExamSubject subject) {
+        return new ExamSubjectResponse(
+                subject.getId(),
+                subject.getSubject(),
+                subject.getMaximumMarks(),
+                marks.findAllByExamSubject_Id(subject.getId()).stream().map(this::toMarkResponse).toList());
+    }
+
+    private SectionSubjectResponse toSectionSubjectResponse(SchoolSectionSubject subject) {
+        return new SectionSubjectResponse(
+                subject.getId(), subject.getSection().getId(), subject.getSubject(), subject.getDefaultMaximumMarks());
     }
 
     private MarkResponse toMarkResponse(ExamMark mark) {
@@ -136,7 +249,15 @@ public class SchoolExamController {
 
     public record CreateExamRequest(
             @NotNull Long sectionId,
+            @NotNull Long examDefinitionId) {
+    }
+
+    public record CreateExamDefinitionRequest(
             @NotBlank @Size(max = 100) String name,
+            @NotNull @Min(2000) @Max(9999) Integer academicYear) {
+    }
+
+    public record CreateExamSubjectRequest(
             @NotBlank @Size(max = 100) String subject,
             @NotNull @DecimalMin(value = "0.01") @Digits(integer = 6, fraction = 2) BigDecimal maximumMarks) {
     }
@@ -152,7 +273,21 @@ public class SchoolExamController {
     public record ExamResponse(
             Long id,
             Long sectionId,
+            Long examDefinitionId,
             String name,
+            Integer academicYear,
+            List<ExamSubjectResponse> subjects) {
+    }
+
+    public record ExamDefinitionResponse(Long id, String name, Integer academicYear) {
+    }
+
+    public record SectionSubjectResponse(
+            Long id, Long sectionId, String subject, BigDecimal defaultMaximumMarks) {
+    }
+
+    public record ExamSubjectResponse(
+            Long id,
             String subject,
             BigDecimal maximumMarks,
             List<MarkResponse> marks) {

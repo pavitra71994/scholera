@@ -4,7 +4,6 @@ import com.schoolmanagement.model.*;
 import com.schoolmanagement.repository.*;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,14 +20,12 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/student")
-@PreAuthorize("hasRole('STUDENT')")
 public class StudentPortalController {
     private final SchoolPersonRepository people;
     private final ExamMarkRepository marks;
@@ -44,44 +41,99 @@ public class StudentPortalController {
     }
 
     @GetMapping("/profile")
+    @PreAuthorize("hasRole('STUDENT')")
     @Transactional(readOnly = true)
     public StudentProfileResponse getProfile(Authentication authentication) {
         return profileResponse(currentStudent(authentication));
     }
 
     @PatchMapping("/profile")
+    @PreAuthorize("hasRole('STUDENT')")
     @Transactional
     public StudentProfileResponse updateProfile(
             Authentication authentication,
             @Valid @RequestBody UpdateStudentProfileRequest request) {
-        SchoolPerson student = currentStudent(authentication);
-        student.updateStudentEditableDetails(
-                request.displayName().trim(),
-                normalizeOptional(request.emergencyContact()));
-        return profileResponse(student);
+            SchoolPerson student = currentStudent(authentication);
+            student.updateStudentEmergencyContact(normalizeOptional(request.emergencyContact()));
+            return profileResponse(student);
     }
 
     @GetMapping("/exam-history")
+    @PreAuthorize("hasRole('STUDENT')")
     @Transactional(readOnly = true)
     public List<ExamHistoryEntry> getExamHistory(Authentication authentication) {
         SchoolPerson student = currentStudent(authentication);
-        return marks.findAllByStudent_IdOrderByExam_NameAscExam_SubjectAscIdAsc(student.getId()).stream()
+        return marks.findAllByStudent_IdOrderByExamSubject_Exam_AcademicYearDescExamSubject_Exam_NameAscExamSubject_SectionSubject_SubjectAscIdAsc(student.getId()).stream()
                 .map(mark -> {
-                    SchoolExam exam = mark.getExam();
+                    SchoolExam exam = mark.getExamSubject().getExam();
                     BigDecimal percentage = mark.getObtainedMarks()
                             .multiply(BigDecimal.valueOf(100))
-                            .divide(exam.getMaximumMarks(), 2, RoundingMode.HALF_UP);
+                            .divide(mark.getExamSubject().getMaximumMarks(), 2, RoundingMode.HALF_UP);
                     return new ExamHistoryEntry(
                             exam.getName(),
-                            exam.getSubject(),
+                            mark.getExamSubject().getSubject(),
+                            exam.getAcademicYear(),
                             mark.getObtainedMarks(),
-                            exam.getMaximumMarks(),
+                            mark.getExamSubject().getMaximumMarks(),
                             percentage);
                 })
                 .toList();
     }
 
+    @GetMapping("/exam-results")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Transactional(readOnly = true)
+    public List<ExamResultResponse> getExamResults(Authentication authentication) {
+        SchoolPerson student = currentStudent(authentication);
+        Map<Long, List<ExamMark>> marksByExam = new LinkedHashMap<>();
+        for (ExamMark mark : marks.findAllByStudent_IdOrderByExamSubject_Exam_AcademicYearDescExamSubject_Exam_NameAscExamSubject_SectionSubject_SubjectAscIdAsc(student.getId())) {
+            marksByExam.computeIfAbsent(mark.getExamSubject().getExam().getId(), ignored -> new ArrayList<>()).add(mark);
+        }
+
+        return marksByExam.values().stream().map(examMarks -> {
+            SchoolExam exam = examMarks.get(0).getExamSubject().getExam();
+            SchoolSection section = exam.getSection();
+            SchoolClass schoolClass = section.getSchoolClass();
+            List<ExamMarkRepository.ExamResultTotal> sectionTotals = marks.findAllExamTotals(exam.getId());
+            List<ExamMarkRepository.ExamResultTotal> classTotals = marks.findAllClassExamTotals(
+                    schoolClass.getId(), exam.getAcademicYear(), exam.getName());
+            List<ExamSubjectResult> subjectResults = examMarks.stream()
+                    .map(mark -> {
+                        BigDecimal maximum = mark.getExamSubject().getMaximumMarks();
+                        BigDecimal percentage = mark.getObtainedMarks()
+                                .multiply(BigDecimal.valueOf(100))
+                                .divide(maximum, 2, RoundingMode.HALF_UP);
+                        return new ExamSubjectResult(
+                                mark.getExamSubject().getSubject(),
+                                mark.getObtainedMarks(),
+                                maximum,
+                                percentage);
+                    })
+                    .toList();
+            BigDecimal obtained = subjectResults.stream()
+                    .map(ExamSubjectResult::obtainedMarks)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal maximum = subjectResults.stream()
+                    .map(ExamSubjectResult::maximumMarks)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal percentage = maximum.signum() == 0
+                    ? BigDecimal.ZERO.setScale(2)
+                    : obtained.multiply(BigDecimal.valueOf(100)).divide(maximum, 2, RoundingMode.HALF_UP);
+            return new ExamResultResponse(
+                    exam.getId(),
+                    exam.getName(),
+                    exam.getAcademicYear(),
+                    obtained,
+                    maximum,
+                    percentage,
+                    rankFor(sectionTotals, student.getId()),
+                    rankFor(classTotals, student.getId()),
+                    subjectResults);
+        }).toList();
+    }
+
     @GetMapping("/attendance-history")
+    @PreAuthorize("hasRole('STUDENT')")
     @Transactional(readOnly = true)
     public AttendanceHistoryResponse getAttendanceHistory(Authentication authentication) {
         SchoolPerson student = currentStudent(authentication);
@@ -101,18 +153,32 @@ public class StudentPortalController {
     }
 
     @GetMapping("/toppers")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT')")
     @Transactional(readOnly = true)
     public ToppersResponse getToppers(Authentication authentication) {
-        SchoolPerson student = currentStudent(authentication);
-        SchoolSection section = student.getSection();
-        if (section == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Your class section is not available.");
-        }
-        Long classId = section.getSchoolClass().getId();
-        List<LeaderboardEntry> classToppers = topClassTotals(marks.findClassTotals(classId));
-        List<LeaderboardEntry> sectionToppers = topSectionTotals(marks.findSectionTotals(section.getId()));
-        List<LeaderboardEntry> subjectToppers = topSubjectTotals(marks.findClassSubjectTotals(classId));
+        Long currentStudentId = authentication.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_STUDENT"))
+                ? currentStudent(authentication).getId()
+                : null;
+        List<LeaderboardEntry> classToppers = rankedClassTotals(marks.findAllClassTotals(), currentStudentId);
+        List<LeaderboardEntry> sectionToppers = rankedSectionTotals(marks.findAllSectionTotals(), currentStudentId);
+        List<LeaderboardEntry> subjectToppers = rankedSubjectTotals(marks.findAllClassSubjectTotals(), currentStudentId);
         return new ToppersResponse(classToppers, sectionToppers, subjectToppers);
+    }
+
+    private int rankFor(List<ExamMarkRepository.ExamResultTotal> totals, Long studentId) {
+        BigDecimal previousMarks = null;
+        int position = 0;
+        int rank = 0;
+        for (ExamMarkRepository.ExamResultTotal row : totals) {
+            position++;
+            if (previousMarks == null || row.getTotalMarks().compareTo(previousMarks) != 0) {
+                previousMarks = row.getTotalMarks();
+                rank = position;
+            }
+            if (row.getStudentId().equals(studentId)) return rank;
+        }
+        return 0;
     }
 
     private SchoolPerson currentStudent(Authentication authentication) {
@@ -134,48 +200,91 @@ public class StudentPortalController {
                 section == null ? null : section.getName());
     }
 
-    private List<LeaderboardEntry> topSectionTotals(List<ExamMarkRepository.SectionLeaderboardTotal> totals) {
-        if (totals.isEmpty()) return List.of();
-        BigDecimal highest = totals.getFirst().getTotalMarks();
-        return totals.stream()
-                .filter(row -> row.getTotalMarks().compareTo(highest) == 0)
-                .map(row -> new LeaderboardEntry(
-                        row.getStudentName(), null, row.getSectionName(), null, row.getTotalMarks(), 1))
-                .toList();
-    }
-
-    private List<LeaderboardEntry> topClassTotals(List<ExamMarkRepository.LeaderboardTotal> totals) {
-        if (totals.isEmpty()) return List.of();
-        BigDecimal highest = totals.getFirst().getTotalMarks();
-        return totals.stream()
-                .filter(row -> row.getTotalMarks().compareTo(highest) == 0)
-                .map(row -> new LeaderboardEntry(
-                        row.getStudentName(), row.getClassName(), null, null, row.getTotalMarks(), 1))
-                .toList();
-    }
-
-    private List<LeaderboardEntry> topSubjectTotals(List<ExamMarkRepository.SubjectLeaderboardTotal> totals) {
-        Map<String, List<ExamMarkRepository.SubjectLeaderboardTotal>> bySubject = totals.stream()
-                .collect(Collectors.groupingBy(
-                        ExamMarkRepository.SubjectLeaderboardTotal::getSubject,
-                        TreeMap::new,
-                        Collectors.toList()));
+    private List<LeaderboardEntry> rankedClassTotals(
+            List<ExamMarkRepository.LeaderboardTotal> totals,
+            Long currentStudentId) {
         List<LeaderboardEntry> result = new ArrayList<>();
-        for (Map.Entry<String, List<ExamMarkRepository.SubjectLeaderboardTotal>> group : bySubject.entrySet()) {
-            List<ExamMarkRepository.SubjectLeaderboardTotal> rows = group.getValue();
-            BigDecimal highest = rows.getFirst().getTotalMarks();
-            rows.stream()
-                    .filter(row -> row.getTotalMarks().compareTo(highest) == 0)
-                    .map(row -> new LeaderboardEntry(
-                            row.getStudentName(),
-                            row.getClassName(),
-                            null,
-                            row.getSubject(),
-                            row.getTotalMarks(),
-                            1))
-                    .forEach(result::add);
+        Long groupId = null;
+        Integer currentYear = null;
+        BigDecimal previousMarks = null;
+        int position = 0;
+        int rank = 0;
+        for (ExamMarkRepository.LeaderboardTotal row : totals) {
+            if (!row.getClassId().equals(groupId) || !row.getAcademicYear().equals(currentYear)) {
+                groupId = row.getClassId();
+                currentYear = row.getAcademicYear();
+                previousMarks = null;
+                position = 0;
+                rank = 0;
+            }
+            position++;
+            if (previousMarks == null || row.getTotalMarks().compareTo(previousMarks) != 0) {
+                previousMarks = row.getTotalMarks();
+                rank = position;
+            }
+            result.add(new LeaderboardEntry(
+                    row.getStudentName(), row.getClassName(), null, null, row.getAcademicYear(), row.getTotalMarks(), rank,
+                    row.getStudentId().equals(currentStudentId)));
         }
-        return List.copyOf(result);
+        return result;
+    }
+
+    private List<LeaderboardEntry> rankedSectionTotals(
+            List<ExamMarkRepository.SectionLeaderboardTotal> totals,
+            Long currentStudentId) {
+        List<LeaderboardEntry> result = new ArrayList<>();
+        Long groupId = null;
+        Integer currentYear = null;
+        BigDecimal previousMarks = null;
+        int position = 0;
+        int rank = 0;
+        for (ExamMarkRepository.SectionLeaderboardTotal row : totals) {
+            if (!row.getSectionId().equals(groupId) || !row.getAcademicYear().equals(currentYear)) {
+                groupId = row.getSectionId();
+                currentYear = row.getAcademicYear();
+                previousMarks = null;
+                position = 0;
+                rank = 0;
+            }
+            position++;
+            if (previousMarks == null || row.getTotalMarks().compareTo(previousMarks) != 0) {
+                previousMarks = row.getTotalMarks();
+                rank = position;
+            }
+            result.add(new LeaderboardEntry(
+                    row.getStudentName(), row.getClassName(), row.getSectionName(), null, row.getAcademicYear(),
+                    row.getTotalMarks(), rank, row.getStudentId().equals(currentStudentId)));
+        }
+        return result;
+    }
+
+    private List<LeaderboardEntry> rankedSubjectTotals(
+            List<ExamMarkRepository.SubjectLeaderboardTotal> totals,
+            Long currentStudentId) {
+        List<LeaderboardEntry> result = new ArrayList<>();
+        String groupKey = null;
+        BigDecimal previousMarks = null;
+        int position = 0;
+        int rank = 0;
+        for (ExamMarkRepository.SubjectLeaderboardTotal row : totals) {
+            String rowGroupKey = row.getClassId() + "\u0000" + row.getSubject() + "\u0000" + row.getAcademicYear();
+            if (!rowGroupKey.equals(groupKey)) {
+                groupKey = rowGroupKey;
+                previousMarks = null;
+                position = 0;
+                rank = 0;
+            }
+            position++;
+            if (previousMarks == null || row.getTotalMarks().compareTo(previousMarks) != 0) {
+                previousMarks = row.getTotalMarks();
+                rank = position;
+            }
+            result.add(new LeaderboardEntry(
+                    row.getStudentName(), row.getClassName(), null, row.getSubject(), row.getAcademicYear(),
+                    row.getTotalMarks(), rank,
+                    row.getStudentId().equals(currentStudentId)));
+        }
+        return result;
     }
 
     private String normalizeOptional(String value) {
@@ -194,16 +303,35 @@ public class StudentPortalController {
     }
 
     public record UpdateStudentProfileRequest(
-            @NotBlank @Size(max = 160) String displayName,
             @Size(max = 40) String emergencyContact) {
     }
 
     public record ExamHistoryEntry(
             String examName,
             String subject,
+            Integer academicYear,
             BigDecimal obtainedMarks,
             BigDecimal maximumMarks,
             BigDecimal percentage) {
+    }
+
+    public record ExamSubjectResult(
+            String subject,
+            BigDecimal obtainedMarks,
+            BigDecimal maximumMarks,
+            BigDecimal percentage) {
+    }
+
+    public record ExamResultResponse(
+            Long examId,
+            String examName,
+            Integer academicYear,
+            BigDecimal totalMarks,
+            BigDecimal maximumMarks,
+            BigDecimal percentage,
+            int sectionRank,
+            int classRank,
+            List<ExamSubjectResult> subjects) {
     }
 
     public record AttendanceHistoryEntry(
@@ -225,8 +353,10 @@ public class StudentPortalController {
             String className,
             String sectionName,
             String subject,
+            Integer academicYear,
             BigDecimal totalMarks,
-            int rank) {
+            int rank,
+            boolean currentStudent) {
     }
 
     public record ToppersResponse(

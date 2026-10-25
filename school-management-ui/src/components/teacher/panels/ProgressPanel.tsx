@@ -50,8 +50,8 @@ export function TeacherProgressPage() {
                   </div>
                   {student.marks.length ? (
                     <ul className="teacher-mark-list">{student.marks.map((mark, index) => (
-                      <li key={`${mark.examName}-${mark.subject}-${index}`}>
-                        <span>{mark.examName} · {mark.subject}</span>
+                      <li key={`${mark.academicYear}-${mark.examName}-${mark.subject}-${index}`}>
+                        <span>{mark.academicYear} · {mark.examName} · {mark.subject}</span>
                         <strong>{mark.obtainedMarks} / {mark.maximumMarks}</strong>
                       </li>
                     ))}</ul>

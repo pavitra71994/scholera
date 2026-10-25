@@ -19,9 +19,9 @@ The UI and API run separately during development. The browser UI calls the API a
   - Classes and sections.
   - Student and teacher accounts.
   - Daily attendance registers by section.
-  - Exams, subjects, and student marks.
+  - School-wide exam setup, section subject catalogs, and separate marks registers.
 - Admin-only mutations for school data. Public account registration is disabled.
-- Flyway-managed database schema, with in-memory H2 for local development and PostgreSQL support for persistent data.
+- Liquibase-managed database schema, with in-memory H2 for local development and PostgreSQL support for persistent data.
 
 ## Quick start
 
@@ -36,7 +36,7 @@ From `school-management-api`, set a local administrator username and password, t
 
 ```sh
 export APP_BOOTSTRAP_ADMIN_USERNAME=admin
-export APP_BOOTSTRAP_ADMIN_PASSWORD='choose-a-local-password-at-least-12-characters'
+export APP_BOOTSTRAP_ADMIN_PASSWORD='admin'
 ./mvnw spring-boot:run
 ```
 
@@ -76,4 +76,4 @@ npm run build
 - The initial admin is provisioned out of band using bootstrap environment variables. The administrator provisions student and teacher accounts from the UI.
 - Student and teacher experiences are role-aware, but their dedicated day-to-day workflows are not part of this admin-focused MVP yet.
 - Attendance is recorded per student, section, and date as Present, Absent, or Late.
-- Exams are defined by section, exam name, and subject; numeric marks are recorded per student and cannot exceed the exam maximum.
+- Exam definitions are school-wide and automatically provisioned to each section; section subjects are shared across that section's exams, with numeric student marks capped by each exam's subject maximum.

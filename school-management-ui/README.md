@@ -22,6 +22,8 @@ Vite normally serves the UI at `http://localhost:5173`. Set the API URL in `.env
 VITE_API_URL=http://localhost:8080/api/v1
 ```
 
+Vite's development server provides hot module replacement: save a UI source file to see its changes in the browser without manually restarting the UI server. The API uses Spring Boot DevTools for restart-on-compiled-classpath changes; enable Java project auto-build in the IDE to compile saved Java edits.
+
 The matching API setup, administrator bootstrap, database, and CORS configuration are documented in the [API README](../school-management-api/README.md).
 
 ## Administrator workflow
@@ -30,11 +32,12 @@ After an administrator signs in, the home page is the **School management** dash
 
 1. **School profile** — edit the school name and timezone.
 2. **Classes & sections** — create classes and add or remove sections in each class.
-3. **Students & teachers** — create student and teacher accounts. Student accounts require assignment to a class section; teacher accounts are not assigned as students to a section. Initial passwords must be at least 12 characters.
+3. **Students & teachers** — create student and teacher accounts. Student accounts require assignment to a class section; teacher accounts are not assigned as students to a section. Passwords can be any non-empty length.
 4. **Attendance** — choose a section and date, set each student's status to Present, Absent, or Late, and save the register. “Mark all present” is available as a convenience before individual adjustments.
-5. **Exams & marks** — create an exam for a section with a subject and maximum score, then enter and save numeric scores for its students. Scores must be between zero and the exam maximum.
+5. **Exam Setup** — administrators add each school-wide exam name and academic year once; the API provisions it automatically for every existing section and for sections created later. Select a class, open a section card, and configure its subject list once for all exams in that section. Teachers can manage subjects only for their assigned sections.
+6. **Marks Register** — administrators and assigned teachers select a class, section, exam, and subject to enter or update marks for every student in the section.
 
-The UI uses URL hashes for admin page navigation (`#/admin`, `#/admin/school-profile`, `#/admin/classes-sections`, `#/admin/students-teachers`, `#/admin/attendance`, and `#/admin/exams-marks`). Admin pages are rendered independently so dashboard cards do not show their forms inline.
+The UI uses URL hashes for admin page navigation (`#/admin`, `#/admin/school-profile`, `#/admin/classes-sections`, `#/admin/students-teachers`, `#/admin/attendance`, `#/admin/exam-setup`, and `#/admin/marks-register`). Admin pages are rendered independently so dashboard cards do not show their forms inline.
 
 ## Authentication and API behavior
 

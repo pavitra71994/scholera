@@ -84,7 +84,7 @@ public class AuthController {
 
     public record LoginRequest(
             @NotBlank @Size(max = 100) String username,
-            @NotBlank @Size(max = 200) String password) {
+            @NotBlank String password) {
     }
 
     public record AuthResponse(String username, String role) {

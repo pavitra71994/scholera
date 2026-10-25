@@ -3,6 +3,7 @@ package com.schoolmanagement.controller;
 import com.schoolmanagement.model.*;
 import com.schoolmanagement.repository.*;
 import com.schoolmanagement.security.Role;
+import com.schoolmanagement.service.SchoolExamProvisioningService;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -29,16 +30,28 @@ public class SchoolClassController {
     private final SchoolSectionRepository sections;
     private final SchoolPersonRepository people;
     private final TeacherSectionAssignmentRepository assignments;
+    private final SchoolExamProvisioningService examProvisioning;
+    private final SchoolExamRepository exams;
+    private final SchoolExamSubjectRepository examSubjects;
+    private final ExamMarkRepository marks;
 
     public SchoolClassController(
             SchoolClassRepository classes,
             SchoolSectionRepository sections,
             SchoolPersonRepository people,
-            TeacherSectionAssignmentRepository assignments) {
+            TeacherSectionAssignmentRepository assignments,
+            SchoolExamProvisioningService examProvisioning,
+            SchoolExamRepository exams,
+            SchoolExamSubjectRepository examSubjects,
+            ExamMarkRepository marks) {
         this.classes = classes;
         this.sections = sections;
         this.people = people;
         this.assignments = assignments;
+        this.examProvisioning = examProvisioning;
+        this.exams = exams;
+        this.examSubjects = examSubjects;
+        this.marks = marks;
     }
 
     @GetMapping
@@ -102,6 +115,7 @@ public class SchoolClassController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A section with this name already exists in this class.");
         }
         SchoolSection saved = sections.save(new SchoolSection(schoolClass, name));
+        examProvisioning.provisionAllDefinitions(saved);
         return new SectionResponse(saved.getId(), saved.getName());
     }
 
@@ -113,6 +127,9 @@ public class SchoolClassController {
         if (!sections.existsByIdAndSchoolClass_Id(sectionId, classId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Section not found in this class.");
         }
+        marks.deleteAllByExamSubject_Exam_Section_Id(sectionId);
+        examSubjects.deleteAllByExam_Section_Id(sectionId);
+        exams.deleteAllBySection_Id(sectionId);
         sections.deleteByIdAndSchoolClass_Id(sectionId, classId);
     }
 

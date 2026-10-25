@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="012-create-exam-mark" author="scholora">
+        <createTable tableName="exam_mark">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" primaryKeyName="pk_exam_mark" nullable="false"/>
+            </column>
+            <column name="exam_subject_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="student_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="obtained_marks" type="NUMERIC(8, 2)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="exam_mark"
+                                 baseColumnNames="exam_subject_id"
+                                 constraintName="fk_exam_mark_exam_subject"
+                                 referencedTableName="school_exam_subject"
+                                 referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="exam_mark"
+                                 baseColumnNames="student_id"
+                                 constraintName="fk_exam_mark_student"
+                                 referencedTableName="school_person"
+                                 referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <addUniqueConstraint tableName="exam_mark"
+                             columnNames="exam_subject_id, student_id"
+                             constraintName="uq_exam_mark_exam_student"/>
+        <sql>ALTER TABLE exam_mark ADD CONSTRAINT ck_exam_mark_obtained_marks CHECK (obtained_marks &gt;= 0);</sql>
+    </changeSet>
+</databaseChangeLog>

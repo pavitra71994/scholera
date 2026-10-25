@@ -1,13 +1,15 @@
-export type AdminPage = "home" | "school-profile" | "classes-sections" | "students-teachers" | "attendance" | "exams-marks";
+export type AdminPage = "home" | "school-profile" | "classes-sections" | "students-teachers" | "attendance" | "exam-setup" | "marks-register" | "toppers";
 export type StudentPage = "home" | "profile" | "exam-history" | "attendance-history" | "toppers";
-export type TeacherPage = "home" | "classes-roster" | "attendance" | "exams-marks" | "class-progress" | "profile";
+export type TeacherPage = "home" | "classes-roster" | "attendance" | "exam-setup" | "marks-register" | "class-progress" | "profile" | "toppers";
 
 export const adminPages: Array<{ title: string; page: Exclude<AdminPage, "home">; description: string }> = [
   { title: "School profile", page: "school-profile", description: "Update school details and timezone." },
   { title: "Classes & sections", page: "classes-sections", description: "Organize classes and their sections." },
   { title: "Students & teachers", page: "students-teachers", description: "Manage school people and their accounts." },
   { title: "Attendance", page: "attendance", description: "Record daily attendance by section." },
-  { title: "Exams & marks", page: "exams-marks", description: "Set up exams and record student marks." },
+  { title: "Exam Setup", page: "exam-setup", description: "Create school-wide exams and configure section subjects." },
+  { title: "Marks Register", page: "marks-register", description: "Enter and review marks by class, section, and exam." },
+  { title: "School Toppers", page: "toppers", description: "View rankings by class, section, and subject." },
 ];
 
 export const studentPages: Array<{ title: string; page: Exclude<StudentPage, "home">; description: string }> = [
@@ -20,7 +22,9 @@ export const studentPages: Array<{ title: string; page: Exclude<StudentPage, "ho
 export const teacherPages: Array<{ title: string; page: Exclude<TeacherPage, "home">; description: string }> = [
   { title: "My Classes & Roster", page: "classes-roster", description: "View your assigned classes and student rosters." },
   { title: "Take Attendance", page: "attendance", description: "Record attendance and review recent history." },
-  { title: "Exams & Marks", page: "exams-marks", description: "Create exams and enter or update marks." },
+  { title: "Exam Setup", page: "exam-setup", description: "Review school exams and configure subjects for assigned sections." },
+  { title: "Marks Register", page: "marks-register", description: "Enter and update marks for your assigned sections." },
   { title: "Class Progress", page: "class-progress", description: "Review recorded attendance and exam marks." },
   { title: "My Profile", page: "profile", description: "View your details and edit your name or phone." },
+  { title: "School Toppers", page: "toppers", description: "View rankings by class, section, and subject." },
 ];

@@ -70,6 +70,7 @@ export interface TeacherStudentProgress {
   marks: Array<{
     examName: string;
     subject: string;
+    academicYear: number;
     obtainedMarks: number;
     maximumMarks: number;
   }>;
@@ -89,9 +90,27 @@ export interface StudentProfile {
 export interface StudentExamHistoryEntry {
   examName: string;
   subject: string;
+  academicYear: number;
   obtainedMarks: number;
   maximumMarks: number;
   percentage: number;
+}
+
+export interface StudentExamResult {
+  examId: number;
+  examName: string;
+  academicYear: number;
+  totalMarks: number;
+  maximumMarks: number;
+  percentage: number;
+  sectionRank: number;
+  classRank: number;
+  subjects: Array<{
+    subject: string;
+    obtainedMarks: number;
+    maximumMarks: number;
+    percentage: number;
+  }>;
 }
 
 export type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE";
@@ -110,8 +129,10 @@ export interface StudentLeaderboardEntry {
   className: string | null;
   sectionName: string | null;
   subject: string | null;
+  academicYear: number;
   totalMarks: number;
   rank: number;
+  currentStudent: boolean;
 }
 
 export interface StudentToppers {
@@ -135,7 +156,27 @@ export interface ExamMark {
 export interface SchoolExam {
   id: number;
   sectionId: number;
+  examDefinitionId: number;
   name: string;
+  academicYear: number;
+  subjects: SchoolExamSubject[];
+}
+
+export interface SchoolExamDefinition {
+  id: number;
+  name: string;
+  academicYear: number;
+}
+
+export interface SchoolSectionSubject {
+  id: number;
+  sectionId: number;
+  subject: string;
+  defaultMaximumMarks: number;
+}
+
+export interface SchoolExamSubject {
+  id: number;
   subject: string;
   maximumMarks: number;
   marks: ExamMark[];

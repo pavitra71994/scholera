@@ -168,7 +168,7 @@ export function PeopleManagement() {
           <input autoComplete="off" maxLength={100} onChange={(event) => setUsername(event.target.value)} required value={username} />
         </label>
         <label className="module-field">Initial password
-          <input autoComplete="new-password" minLength={12} maxLength={100} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />
+          <input autoComplete="new-password" onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />
         </label>
         {role === "STUDENT" && (
           <>

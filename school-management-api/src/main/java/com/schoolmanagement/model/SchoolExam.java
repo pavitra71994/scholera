@@ -8,14 +8,16 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
-import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "school_exam", uniqueConstraints = {
-        @UniqueConstraint(name = "uq_school_exam_section_name_subject", columnNames = {"section_id", "name", "subject"})
+        @UniqueConstraint(name = "uq_school_exam_section_name_year", columnNames = {"section_id", "name", "academic_year"})
 })
 public class SchoolExam {
     @Id
@@ -26,23 +28,27 @@ public class SchoolExam {
     @JoinColumn(name = "section_id", nullable = false)
     private SchoolSection section;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "exam_definition_id", nullable = false)
+    private SchoolExamDefinition definition;
+
     @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(nullable = false, length = 100)
-    private String subject;
+    @Column(name = "academic_year", nullable = false)
+    private Integer academicYear;
 
-    @Column(name = "maximum_marks", nullable = false, precision = 8, scale = 2)
-    private BigDecimal maximumMarks;
+    @OneToMany(mappedBy = "exam")
+    private List<SchoolExamSubject> subjects = new ArrayList<>();
 
     protected SchoolExam() {
     }
 
-    public SchoolExam(SchoolSection section, String name, String subject, BigDecimal maximumMarks) {
+    public SchoolExam(SchoolSection section, SchoolExamDefinition definition) {
         this.section = section;
-        this.name = name;
-        this.subject = subject;
-        this.maximumMarks = maximumMarks;
+        this.definition = definition;
+        this.name = definition.getName();
+        this.academicYear = definition.getAcademicYear();
     }
 
     public Long getId() {
@@ -53,15 +59,19 @@ public class SchoolExam {
         return section;
     }
 
+    public SchoolExamDefinition getDefinition() {
+        return definition;
+    }
+
     public String getName() {
         return name;
     }
 
-    public String getSubject() {
-        return subject;
+    public Integer getAcademicYear() {
+        return academicYear;
     }
 
-    public BigDecimal getMaximumMarks() {
-        return maximumMarks;
+    public List<SchoolExamSubject> getSubjects() {
+        return subjects;
     }
 }

@@ -34,9 +34,6 @@ public class InitialAdminBootstrap implements ApplicationRunner {
         if (username.isBlank() || password.isBlank()) {
             throw new IllegalStateException("Both bootstrap admin username and password must be configured.");
         }
-        if (password.length() < 12) {
-            throw new IllegalStateException("Bootstrap admin password must be at least 12 characters.");
-        }
         users.findByUsername(username).ifPresentOrElse(user -> {
             if (user.getRole() != Role.ADMIN) {
                 throw new IllegalStateException("Configured bootstrap account exists but is not an admin.");

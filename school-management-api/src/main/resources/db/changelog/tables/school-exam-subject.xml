@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="011-create-school-exam-subject" author="scholora">
+        <createTable tableName="school_exam_subject">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" primaryKeyName="pk_school_exam_subject" nullable="false"/>
+            </column>
+            <column name="exam_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="section_subject_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="maximum_marks" type="NUMERIC(8, 2)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="school_exam_subject"
+                                 baseColumnNames="exam_id"
+                                 constraintName="fk_school_exam_subject_exam"
+                                 referencedTableName="school_exam"
+                                 referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="school_exam_subject"
+                                 baseColumnNames="section_subject_id"
+                                 constraintName="fk_school_exam_subject_section_subject"
+                                 referencedTableName="school_section_subject"
+                                 referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <addUniqueConstraint tableName="school_exam_subject"
+                             columnNames="exam_id, section_subject_id"
+                             constraintName="uq_school_exam_subject_exam_section_subject"/>
+        <sql>ALTER TABLE school_exam_subject ADD CONSTRAINT ck_school_exam_subject_maximum_marks CHECK (maximum_marks &gt; 0);</sql>
+    </changeSet>
+</databaseChangeLog>

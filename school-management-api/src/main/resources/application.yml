@@ -13,8 +13,8 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
-  flyway:
-    enabled: true
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
   h2:
     console:
       enabled: false
@@ -24,6 +24,9 @@ app:
   bootstrap-admin:
     username: ${APP_BOOTSTRAP_ADMIN_USERNAME:}
     password: ${APP_BOOTSTRAP_ADMIN_PASSWORD:}
+  demo-data:
+    enabled: ${APP_DEMO_DATA_ENABLED:false}
+    student-password: ${APP_DEMO_STUDENT_PASSWORD:}
 
 ---
 spring:
@@ -31,7 +34,7 @@ spring:
     activate:
       on-profile: postgres
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/school_management}
-    username: ${DATABASE_USER:school_management}
-    password: ${DATABASE_PASSWORD:}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5434/school_management}
+    username: ${DATABASE_USER:postgres}
+    password: ${DATABASE_PASSWORD}
     driver-class-name: org.postgresql.Driver

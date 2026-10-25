@@ -184,7 +184,7 @@ public class SchoolPeopleController {
     public record CreatePersonRequest(
             @NotBlank @Size(max = 160) String fullName,
             @NotBlank @Size(max = 100) String username,
-            @NotBlank @Size(min = 12, max = 100) String password,
+            @NotBlank String password,
             @NotNull Role role,
             Long sectionId,
             @Past LocalDate dateOfBirth,

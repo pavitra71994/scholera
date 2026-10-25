@@ -15,7 +15,7 @@ import java.math.BigDecimal;
 
 @Entity
 @Table(name = "exam_mark", uniqueConstraints = {
-        @UniqueConstraint(name = "uq_exam_mark_exam_student", columnNames = {"exam_id", "student_id"})
+        @UniqueConstraint(name = "uq_exam_mark_exam_student", columnNames = {"exam_subject_id", "student_id"})
 })
 public class ExamMark {
     @Id
@@ -23,8 +23,8 @@ public class ExamMark {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "exam_id", nullable = false)
-    private SchoolExam exam;
+    @JoinColumn(name = "exam_subject_id", nullable = false)
+    private SchoolExamSubject examSubject;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "student_id", nullable = false)
@@ -36,8 +36,8 @@ public class ExamMark {
     protected ExamMark() {
     }
 
-    public ExamMark(SchoolExam exam, SchoolPerson student, BigDecimal obtainedMarks) {
-        this.exam = exam;
+    public ExamMark(SchoolExamSubject examSubject, SchoolPerson student, BigDecimal obtainedMarks) {
+        this.examSubject = examSubject;
         this.student = student;
         this.obtainedMarks = obtainedMarks;
     }
@@ -50,8 +50,8 @@ public class ExamMark {
         return student;
     }
 
-    public SchoolExam getExam() {
-        return exam;
+    public SchoolExamSubject getExamSubject() {
+        return examSubject;
     }
 
     public BigDecimal getObtainedMarks() {

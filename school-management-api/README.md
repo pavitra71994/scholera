@@ -1,6 +1,6 @@
 # School Management API
 
-Spring Boot REST API for a single-school management system. It provides session-based authentication, role-aware access, school and academic administration endpoints, and Flyway database migrations.
+Spring Boot REST API for a single-school management system. It provides session-based authentication, role-aware access, school and academic administration endpoints, and Liquibase-managed database schema.
 
 ## Requirements
 
@@ -14,26 +14,45 @@ The default profile uses an in-memory H2 database in PostgreSQL compatibility mo
 
 ```sh
 export APP_BOOTSTRAP_ADMIN_USERNAME=admin
-export APP_BOOTSTRAP_ADMIN_PASSWORD='choose-a-local-password-at-least-12-characters'
+export APP_BOOTSTRAP_ADMIN_PASSWORD='admin'
 ./mvnw spring-boot:run
 ```
 
-The app listens on port `8080` by default. Configure `SERVER_PORT` to use a different port. The bootstrap operation inserts the admin only if the username does not already exist; it does not reset an existing account's password. H2 is in-memory, so its application data is lost when the API process stops.
+The app listens on port `8080` by default. Configure `SERVER_PORT` to use a different port. Spring Boot DevTools restarts the API when the running classpath changes. In VS Code, enable Java project auto-build so saved Java changes are compiled and trigger a restart. DevTools is development-only and is not included as a transitive dependency for consumers. The bootstrap operation inserts the admin only if the username does not already exist; it does not reset an existing account's password. H2 is in-memory, so its application data is lost when the API process stops.
+
+The sample bootstrap password `admin` is for local development only. Choose a strong secret for any shared or production environment. Account passwords must be non-empty but can be any length; new passwords are pre-hashed before BCrypt so they are not limited by BCrypt's input length. Existing BCrypt password hashes continue to work.
+
+### Optional demo school data
+
+To seed a fresh database with one bootstrap admin, Classes 1–5, sections A/B/C, 10 students per section, 10 days of randomized attendance, five exams, five subjects per section, and randomized marks, enable the demo seeder before the first API start:
+
+```sh
+export APP_BOOTSTRAP_ADMIN_USERNAME=admin
+export APP_BOOTSTRAP_ADMIN_PASSWORD='admin'
+export APP_DEMO_DATA_ENABLED=true
+read -s "APP_DEMO_STUDENT_PASSWORD?Shared demo student password: "
+export APP_DEMO_STUDENT_PASSWORD
+./mvnw spring-boot:run
+```
+
+For PostgreSQL instead of the default in-memory H2 database, start with `./mvnw spring-boot:run -Dspring-boot.run.profiles=postgres` after setting `DATABASE_PASSWORD`.
+
+Student usernames follow `demo-class-<class>-<section>-student-<roll>` (for example, `demo-class-1-a-student-01`). The configured student password is shared across the seeded student accounts and is never stored in the changelog. Demo seeding is disabled by default, only runs when no classes exist, and is safe to rerun after a successful seed. Use it only with a fresh local/test database, not production.
 
 ## Run with PostgreSQL
 
-Set a local database password, start the included PostgreSQL service, and run the API with the `postgres` profile:
+The PostgreSQL profile connects to `localhost:5434`, database `school_management`, as user `postgres` by default. Set the database password in your shell without saving it in the repository, then start the API with the `postgres` profile:
 
 ```sh
-export DATABASE_PASSWORD='choose-a-local-database-password'
-docker compose up -d postgres
+read -s "DATABASE_PASSWORD?PostgreSQL password: "
+export DATABASE_PASSWORD
 
 export APP_BOOTSTRAP_ADMIN_USERNAME=admin
-export APP_BOOTSTRAP_ADMIN_PASSWORD='choose-a-local-password-at-least-12-characters'
+export APP_BOOTSTRAP_ADMIN_PASSWORD='admin'
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=postgres
 ```
 
-The compose service creates database `school_management` and user `school_management`, and stores data in a Docker volume. Set `DATABASE_URL`, `DATABASE_USER`, or `DATABASE_PASSWORD` to override the profile defaults. Never commit local secrets or use development passwords in production.
+The API restarts on saved Java changes when IDE auto-build is enabled. This uses an existing PostgreSQL server; it does not start the included Docker Compose database. The Compose service is a separate development option on port `5432`. Override `DATABASE_URL`, `DATABASE_USER`, or `DATABASE_PASSWORD` when your database name or connection settings differ. Never commit local secrets or use development passwords in production.
 
 ## Configuration
 
@@ -42,16 +61,18 @@ The compose service creates database `school_management` and user `school_manage
 | `SERVER_PORT` | `8080` | HTTP port |
 | `FRONTEND_ORIGIN` | `http://localhost:5173` | Allowed credentialed CORS origin |
 | `APP_BOOTSTRAP_ADMIN_USERNAME` | empty | Optional initial administrator username |
-| `APP_BOOTSTRAP_ADMIN_PASSWORD` | empty | Optional initial administrator password; minimum 12 characters |
-| `DATABASE_URL` | `jdbc:postgresql://localhost:5432/school_management` | PostgreSQL JDBC URL in the `postgres` profile |
-| `DATABASE_USER` | `school_management` | PostgreSQL username in the `postgres` profile |
-| `DATABASE_PASSWORD` | empty | PostgreSQL password in the `postgres` profile and compose |
+| `APP_BOOTSTRAP_ADMIN_PASSWORD` | empty | Optional initial administrator password; must be non-empty |
+| `APP_DEMO_DATA_ENABLED` | `false` | Seed sample classes, students, attendance, exams, and marks on a fresh database |
+| `APP_DEMO_STUDENT_PASSWORD` | empty | Shared password required for sample student accounts when demo seeding is enabled |
+| `DATABASE_URL` | `jdbc:postgresql://localhost:5434/school_management` | PostgreSQL JDBC URL in the `postgres` profile |
+| `DATABASE_USER` | `postgres` | PostgreSQL username in the `postgres` profile |
+| `DATABASE_PASSWORD` | required | PostgreSQL password in the `postgres` profile and compose |
 
 Both bootstrap admin variables must be set together or both left empty. The UI origin must match `FRONTEND_ORIGIN` when the UI is hosted somewhere other than the default.
 
 ## API reference
 
-All routes use the `/api/v1` base path. Except for health and CSRF-token retrieval, endpoints require an authenticated session. School data writes and all people, attendance, and exam endpoints are administrator-only. JSON examples below show request/response shapes; IDs are generated by the API.
+All routes use the `/api/v1` base path. Except for health and CSRF-token retrieval, endpoints require an authenticated session. Access is role-specific: school configuration, account management, and school-wide exam definitions are admin-only; teachers can access assigned-section attendance, subject setup, and marks. JSON examples below show request/response shapes; IDs are generated by the API.
 
 ### Health and authentication
 
@@ -141,7 +162,7 @@ Teacher request:
 }
 ```
 
-Passwords must be at least 12 characters. Usernames must be unique, and only `STUDENT` and `TEACHER` roles can be created through this endpoint. A student must be assigned to an existing section; a teacher has no student section assignment. The response includes the person's ID, full name, username, role, and (for students) section and class details.
+Passwords can be any non-empty length. Usernames must be unique, and only `STUDENT` and `TEACHER` roles can be created through this endpoint. A student must be assigned to an existing section; a teacher has no student section assignment. The response includes the person's ID, full name, username, role, and (for students) section and class details.
 
 ### Attendance
 
@@ -168,19 +189,27 @@ Each student can have one status per date: `PRESENT`, `ABSENT`, or `LATE`. Submi
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
-| `GET` | `/exams?sectionId={id}` | Admin | List exams for a section, including saved marks |
-| `POST` | `/exams` | Admin | Create an exam for a section and subject |
-| `POST` | `/exams/{examId}/marks` | Admin | Save or update marks for the exam's section |
+| `GET` | `/exams/definitions` | Admin/teacher | List the school-wide exam schedule |
+| `POST` | `/exams/definitions` | Admin | Add a common exam name and academic year; automatically provision it for every section |
+| `GET` | `/exams?sectionId={id}` | Admin/assigned teacher | List yearly exams, subjects, maximum marks, and saved scores for a section |
+| `POST` | `/exams` | Admin/assigned teacher | Ensure a common exam exists for a section (idempotent compatibility endpoint) |
+| `GET` | `/exams/sections/{sectionId}/subjects` | Admin/assigned teacher | List the shared subject catalog for a section |
+| `POST` | `/exams/sections/{sectionId}/subjects` | Admin/assigned teacher | Add a section subject to every exam in that section |
+| `POST` | `/exams/{examId}/subjects` | Admin/assigned teacher | Compatibility endpoint that adds a subject to every exam in the section |
+| `POST` | `/exams/subjects/{subjectId}/marks` | Admin/assigned teacher | Save or update marks for all students in that subject's section |
 
-Create exam:
+Add a school-wide exam:
 
 ```json
-{
-  "sectionId":1,
-  "name":"Term 1",
-  "subject":"Mathematics",
-  "maximumMarks":100
-}
+{"name":"Term 1","academicYear":2026}
+```
+
+Creating a definition automatically provisions an exam record for each existing section. New sections also receive all existing definitions. Section subjects are shared across every exam in the section; their default maximum marks are used when creating exam-subject entries. Each exam retains its own maximum marks once provisioned.
+
+Add subjects separately, each with its own maximum:
+
+```json
+{"subject":"Mathematics","maximumMarks":100}
 ```
 
 Save marks:
@@ -194,7 +223,7 @@ Save marks:
 }
 ```
 
-Marks use decimal numbers with up to two places. The maximum must be greater than zero; scores must be zero or greater and may not exceed the exam maximum. Submit one score for every student in the exam's section.
+School-wide exam names are unique per year and are automatically provisioned to every section. Subject names are unique within a section and are shared across all exams there. Their default maximum marks initialize each exam's subject entry; marks use decimal numbers with up to two places, and scores may not exceed the exam-specific maximum. Submit one score for every student in the exam's section. Existing exam and mark records are migrated into school-wide definitions for their current calendar year.
 
 ### Error responses
 
@@ -202,7 +231,9 @@ Validation and request errors are returned as JSON with a `message` field. Typic
 
 ## Database and migrations
 
-Flyway applies the SQL migrations in `src/main/resources/db/migration` at startup. Hibernate validates the schema; it does not generate production tables. Keep schema changes in a new migration rather than editing an already-applied migration. Current migrations establish users and school profile, classes and sections, and people, attendance, exams, and marks.
+Liquibase applies the changesets in `src/main/resources/db/changelog/db.changelog-master.xml` at startup and tracks them in its `DATABASECHANGELOG` tables. Hibernate validates the schema; it does not generate tables. Add schema changes as new Liquibase changesets. The current baseline creates users, school profile, classes and sections, people, attendance, school-wide exams, section subjects, and marks.
+
+This Liquibase baseline is intended for a fresh database. It replaces the former Flyway migration history; existing databases containing Flyway-managed data must be backed up and recreated/migrated separately before switching to this baseline. Liquibase records each changeset after successful execution, so application restarts do not replay already-applied schema changes.
 
 ## Tests
 

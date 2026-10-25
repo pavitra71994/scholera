@@ -112,8 +112,7 @@ public class SchoolPerson {
         return section;
     }
 
-    public void updateStudentEditableDetails(String fullName, String emergencyContact) {
-        this.fullName = fullName;
+    public void updateStudentEmergencyContact(String emergencyContact) {
         this.emergencyContact = emergencyContact;
     }
 

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="005-create-school-person" author="scholora">
+        <createTable tableName="school_person">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" primaryKeyName="pk_school_person" nullable="false"/>
+            </column>
+            <column name="app_user_id" type="BIGINT">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_school_person_app_user"/>
+            </column>
+            <column name="full_name" type="VARCHAR(160)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="date_of_birth" type="DATE"/>
+            <column name="mother_name" type="VARCHAR(160)"/>
+            <column name="father_name" type="VARCHAR(160)"/>
+            <column name="emergency_contact" type="VARCHAR(40)"/>
+            <column name="roll_number" type="INTEGER"/>
+            <column name="teacher_phone" type="VARCHAR(40)"/>
+            <column name="section_id" type="BIGINT"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="school_person"
+                                 baseColumnNames="app_user_id"
+                                 constraintName="fk_school_person_app_user"
+                                 referencedTableName="app_user"
+                                 referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="school_person"
+                                 baseColumnNames="section_id"
+                                 constraintName="fk_school_person_section"
+                                 referencedTableName="school_section"
+                                 referencedColumnNames="id"/>
+        <sql>ALTER TABLE school_person ADD CONSTRAINT ck_school_person_roll_number_positive CHECK (roll_number IS NULL OR roll_number &gt; 0);</sql>
+        <addUniqueConstraint tableName="school_person"
+                             columnNames="section_id, roll_number"
+                             constraintName="uq_school_person_section_roll_number"/>
+    </changeSet>
+</databaseChangeLog>

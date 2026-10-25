@@ -3,6 +3,8 @@ import type {
   ClassDirectory,
   SchoolClass,
   SchoolExam,
+  SchoolExamDefinition,
+  SchoolSectionSubject,
   SchoolPerson,
   SchoolProfile,
   SchoolSection,
@@ -10,6 +12,7 @@ import type {
   StudentAttendance,
   StudentAttendanceHistory,
   StudentExamHistoryEntry,
+  StudentExamResult,
   StudentProfile,
   StudentToppers,
   TeacherProfile,
@@ -161,12 +164,16 @@ export async function getStudentProfile(): Promise<StudentProfile> {
   return request<StudentProfile>("/student/profile");
 }
 
-export async function updateStudentProfile(profile: Pick<StudentProfile, "displayName" | "emergencyContact">): Promise<StudentProfile> {
+export async function updateStudentProfile(profile: Pick<StudentProfile, "emergencyContact">): Promise<StudentProfile> {
   return mutate<StudentProfile>("/student/profile", "PATCH", profile);
 }
 
 export async function getStudentExamHistory(): Promise<StudentExamHistoryEntry[]> {
   return request<StudentExamHistoryEntry[]>("/student/exam-history");
+}
+
+export async function getStudentExamResults(): Promise<StudentExamResult[]> {
+  return request<StudentExamResult[]>("/student/exam-results");
 }
 
 export async function getStudentAttendanceHistory(): Promise<StudentAttendanceHistory> {
@@ -202,20 +209,47 @@ export async function getExams(sectionId: number): Promise<SchoolExam[]> {
   return request<SchoolExam[]>(`/exams?sectionId=${sectionId}`);
 }
 
-export async function createExam(exam: {
-  sectionId: number;
+export async function getSchoolExamDefinitions(): Promise<SchoolExamDefinition[]> {
+  return request<SchoolExamDefinition[]>("/exams/definitions");
+}
+
+export async function createSchoolExamDefinition(definition: {
   name: string;
+  academicYear: number;
+}): Promise<SchoolExamDefinition> {
+  return mutate<SchoolExamDefinition>("/exams/definitions", "POST", definition);
+}
+
+export async function getSectionSubjects(sectionId: number): Promise<SchoolSectionSubject[]> {
+  return request<SchoolSectionSubject[]>(`/exams/sections/${sectionId}/subjects`);
+}
+
+export async function createSectionSubject(sectionId: number, subject: {
   subject: string;
   maximumMarks: number;
+}): Promise<SchoolSectionSubject> {
+  return mutate<SchoolSectionSubject>(`/exams/sections/${sectionId}/subjects`, "POST", subject);
+}
+
+export async function createExam(exam: {
+  sectionId: number;
+  examDefinitionId: number;
 }): Promise<SchoolExam> {
   return mutate<SchoolExam>("/exams", "POST", exam);
 }
 
+export async function createExamSubject(examId: number, subject: {
+  subject: string;
+  maximumMarks: number;
+}): Promise<SchoolExam["subjects"][number]> {
+  return mutate<SchoolExam["subjects"][number]>(`/exams/${examId}/subjects`, "POST", subject);
+}
+
 export async function saveExamMarks(
-  examId: number,
+  subjectId: number,
   marks: Array<{ studentId: number; obtainedMarks: number }>,
 ): Promise<void> {
-  await mutate<unknown>(`/exams/${examId}/marks`, "POST", { marks });
+  await mutate<unknown>(`/exams/subjects/${subjectId}/marks`, "POST", { marks });
 }
 
 export async function getHealth(): Promise<boolean> {

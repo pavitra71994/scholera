@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="010-create-school-section-subject" author="scholora">
+        <createTable tableName="school_section_subject">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" primaryKeyName="pk_school_section_subject" nullable="false"/>
+            </column>
+            <column name="section_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="subject" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="default_maximum_marks" type="NUMERIC(8, 2)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="school_section_subject"
+                                 baseColumnNames="section_id"
+                                 constraintName="fk_school_section_subject_section"
+                                 referencedTableName="school_section"
+                                 referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <addUniqueConstraint tableName="school_section_subject"
+                             columnNames="section_id, subject"
+                             constraintName="uq_school_section_subject_name"/>
+        <sql>ALTER TABLE school_section_subject ADD CONSTRAINT ck_school_section_subject_maximum_marks CHECK (default_maximum_marks &gt; 0);</sql>
+    </changeSet>
+</databaseChangeLog>

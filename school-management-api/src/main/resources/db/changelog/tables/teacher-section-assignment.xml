@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="007-create-teacher-section-assignment" author="scholora">
+        <createTable tableName="teacher_section_assignment">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" primaryKeyName="pk_teacher_section_assignment" nullable="false"/>
+            </column>
+            <column name="teacher_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="section_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="teacher_section_assignment"
+                                 baseColumnNames="teacher_id"
+                                 constraintName="fk_teacher_section_assignment_teacher"
+                                 referencedTableName="school_person"
+                                 referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="teacher_section_assignment"
+                                 baseColumnNames="section_id"
+                                 constraintName="fk_teacher_section_assignment_section"
+                                 referencedTableName="school_section"
+                                 referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <addUniqueConstraint tableName="teacher_section_assignment"
+                             columnNames="teacher_id, section_id"
+                             constraintName="uq_teacher_section_assignment"/>
+        <createIndex tableName="teacher_section_assignment" indexName="ix_teacher_section_assignment_section">
+            <column name="section_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

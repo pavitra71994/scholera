@@ -100,14 +100,16 @@ public class TeacherPortalController {
             if (record.getStatus() == AttendanceStatus.PRESENT) row.presentAttendance++;
             if (record.getStatus() == AttendanceStatus.LATE) row.lateAttendance++;
         }
-        for (ExamMark mark : marks.findAllByExam_Section_IdOrderByExam_NameAscExam_SubjectAscStudent_FullNameAsc(sectionId)) {
+        for (ExamMark mark : marks.findAllByExamSubject_Exam_Section_IdOrderByExamSubject_Exam_AcademicYearDescExamSubject_Exam_NameAscExamSubject_SectionSubject_SubjectAscStudent_FullNameAsc(sectionId)) {
             MutableStudentProgress row = progress.get(mark.getStudent().getId());
             if (row != null) {
+                SchoolExamSubject subject = mark.getExamSubject();
                 row.examMarks.add(new StudentExamMarkResponse(
-                        mark.getExam().getName(),
-                        mark.getExam().getSubject(),
+                        subject.getExam().getName(),
+                        subject.getSubject(),
+                        subject.getExam().getAcademicYear(),
                         mark.getObtainedMarks(),
-                        mark.getExam().getMaximumMarks()));
+                        subject.getMaximumMarks()));
             }
         }
         List<StudentProgressResponse> studentsResponse = progress.values().stream()
@@ -192,6 +194,7 @@ public class TeacherPortalController {
     public record StudentExamMarkResponse(
             String examName,
             String subject,
+            Integer academicYear,
             BigDecimal obtainedMarks,
             BigDecimal maximumMarks) {
     }

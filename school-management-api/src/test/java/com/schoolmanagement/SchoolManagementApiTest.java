@@ -10,6 +10,10 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -280,6 +284,31 @@ class SchoolManagementApiTest {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.role", is("TEACHER")));
+        String longPassword = "long-password-".repeat(20);
+        mvc.perform(post("/api/v1/people")
+                        .with(user("test-admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Short Password User","username":"short-password-user","password":"x","role":"TEACHER"}
+                                """))
+                .andExpect(status().isCreated());
+        mvc.perform(post("/api/v1/people")
+                        .with(user("test-admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Long Password User","username":"long-password-user","password":"%s","role":"TEACHER"}
+                                """.formatted(longPassword)))
+                .andExpect(status().isCreated());
+        mvc.perform(post("/api/v1/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"long-password-user","password":"%s"}
+                                """.formatted(longPassword)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username", is("long-password-user")));
 
         long studentId = ((Number) com.jayway.jsonpath.JsonPath.read(
                 createdStudent.getResponse().getContentAsString(), "$.id")).longValue();
@@ -294,19 +323,86 @@ class SchoolManagementApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].status", is("PRESENT")));
 
+        long examDefinitionId = createTestExamDefinition(
+                user("test-admin").roles("ADMIN"), "Unit Test");
+        mvc.perform(get("/api/v1/exams")
+                        .with(user("test-admin").roles("ADMIN"))
+                        .param("sectionId", String.valueOf(sectionId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.name == 'Unit Test' && @.sectionId == " + sectionId + ")]", Matchers.hasSize(1)));
         var examResponse = mvc.perform(post("/api/v1/exams")
                         .with(user("test-admin").roles("ADMIN"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"sectionId":%d,"name":"Unit Test","subject":"Mathematics","maximumMarks":100}
-                                """.formatted(sectionId)))
+                                {"sectionId":%d,"examDefinitionId":%d}
+                                """.formatted(sectionId, examDefinitionId)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.subject", is("Mathematics")))
+                .andExpect(jsonPath("$.academicYear", is(2026)))
                 .andReturn();
         long examId = ((Number) com.jayway.jsonpath.JsonPath.read(
                 examResponse.getResponse().getContentAsString(), "$.id")).longValue();
-        mvc.perform(post("/api/v1/exams/" + examId + "/marks")
+        long secondSectionId = createTestSection(
+                user("test-admin").roles("ADMIN"), classId, "Academic Test Section B");
+        mvc.perform(get("/api/v1/exams")
+                        .with(user("test-admin").roles("ADMIN"))
+                        .param("sectionId", String.valueOf(secondSectionId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.examDefinitionId == " + examDefinitionId + " && @.sectionId == " + secondSectionId + ")]", Matchers.hasSize(1)));
+        mvc.perform(post("/api/v1/exams")
+                        .with(user("test-admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"sectionId":%d,"examDefinitionId":%d}
+                                """.formatted(secondSectionId, examDefinitionId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.examDefinitionId", is((int) examDefinitionId)))
+                .andExpect(jsonPath("$.name", is("Unit Test")));
+        var subjectResponse = mvc.perform(post("/api/v1/exams/" + examId + "/subjects")
+                        .with(user("test-admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"subject":"Mathematics","maximumMarks":100}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.subject", is("Mathematics")))
+                .andReturn();
+        long subjectId = ((Number) com.jayway.jsonpath.JsonPath.read(
+                subjectResponse.getResponse().getContentAsString(), "$.id")).longValue();
+        mvc.perform(post("/api/v1/exams/" + examId + "/subjects")
+                        .with(user("test-admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"subject":"Science","maximumMarks":40}
+                                """))
+                .andExpect(status().isCreated());
+        createTestExamDefinition(user("test-admin").roles("ADMIN"), "Final Unit Test");
+        mvc.perform(post("/api/v1/exams/sections/" + sectionId + "/subjects")
+                        .with(user("test-admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"subject":"History","maximumMarks":75}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.subject", is("History")));
+        var finalExamList = mvc.perform(get("/api/v1/exams")
+                        .with(user("test-admin").roles("ADMIN"))
+                        .param("sectionId", String.valueOf(sectionId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.name == 'Unit Test' && @.sectionId == " + sectionId + ")]", Matchers.hasSize(1)))
+                .andExpect(jsonPath("$[?(@.name == 'Final Unit Test' && @.sectionId == " + sectionId + ")]", Matchers.hasSize(1)))
+                .andReturn();
+        List<Map<String, Object>> finalExams = com.jayway.jsonpath.JsonPath.read(
+                finalExamList.getResponse().getContentAsString(), "$");
+        finalExams.stream()
+                .filter(exam -> List.of("Unit Test", "Final Unit Test").contains(exam.get("name"))
+                        && ((Number) exam.get("sectionId")).longValue() == sectionId)
+                .forEach(exam -> assertEquals(3, ((List<?>) exam.get("subjects")).size()));
+        mvc.perform(post("/api/v1/exams/subjects/" + subjectId + "/marks")
                         .with(user("test-admin").roles("ADMIN"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -318,7 +414,7 @@ class SchoolManagementApiTest {
     }
 
     @Test
-    void studentPortalIsSelfScopedAndReturnsTopRawTotalTies() throws Exception {
+    void studentPortalRestrictsProfileEditsAndReturnsRankedToppersByGroup() throws Exception {
         var admin = user("test-admin").roles("ADMIN");
         var classResult = mvc.perform(post("/api/v1/classes")
                         .with(admin)
@@ -401,10 +497,10 @@ class SchoolManagementApiTest {
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"displayName":"Updated Portal Learner","emergencyContact":"555-0199"}
+                                {"displayName":"Unauthorized Name Change","emergencyContact":"555-0199"}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.displayName", is("Updated Portal Learner")))
+                .andExpect(jsonPath("$.displayName", is(names[2])))
                 .andExpect(jsonPath("$.emergencyContact", is("555-0199")))
                 .andExpect(jsonPath("$.dateOfBirth", is("2009-04-12")))
                 .andExpect(jsonPath("$.motherName", is("Parent Name")));
@@ -412,6 +508,10 @@ class SchoolManagementApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName", is(names[0])))
                 .andExpect(jsonPath("$.emergencyContact", is("555-0100")));
+        mvc.perform(get("/api/v1/student/profile").with(user(usernames[2]).roles("STUDENT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.displayName", is(names[2])))
+                .andExpect(jsonPath("$.emergencyContact", is("555-0199")));
 
         mvc.perform(get("/api/v1/student/exam-history").with(user(usernames[2]).roles("STUDENT")))
                 .andExpect(status().isOk())
@@ -420,6 +520,17 @@ class SchoolManagementApiTest {
                 .andExpect(jsonPath("$[0].obtainedMarks", is(50.0)))
                 .andExpect(jsonPath("$[0].maximumMarks", is(100.0)))
                 .andExpect(jsonPath("$[0].percentage", is(50.0)));
+        mvc.perform(get("/api/v1/student/exam-results").with(user(usernames[2]).roles("STUDENT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()", is(2)))
+                .andExpect(jsonPath("$[0].examName", is("Arithmetic Review")))
+                .andExpect(jsonPath("$[0].totalMarks", is(50.0)))
+                .andExpect(jsonPath("$[0].maximumMarks", is(100.0)))
+                .andExpect(jsonPath("$[0].percentage", is(50.0)))
+                .andExpect(jsonPath("$[0].sectionRank", is(3)))
+                .andExpect(jsonPath("$[0].classRank", is(3)))
+                .andExpect(jsonPath("$[0].subjects[0].subject", is("Mathematics")))
+                .andExpect(jsonPath("$[0].subjects[0].obtainedMarks", is(50.0)));
         mvc.perform(get("/api/v1/student/attendance-history").with(user(usernames[0]).roles("STUDENT")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.recordedDays", is(2)))
@@ -430,10 +541,24 @@ class SchoolManagementApiTest {
                 .andExpect(jsonPath("$.history.length()", is(2)));
         mvc.perform(get("/api/v1/student/toppers").with(user(usernames[2]).roles("STUDENT")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.classToppers.length()", is(2)))
+                .andExpect(jsonPath("$.classToppers.length()", is(3)))
                 .andExpect(jsonPath("$.classToppers[0].totalMarks", is(120.0)))
-                .andExpect(jsonPath("$.sectionToppers.length()", is(2)))
-                .andExpect(jsonPath("$.subjectToppers.length()", is(5)));
+                .andExpect(jsonPath("$.classToppers[1].rank", is(1)))
+                .andExpect(jsonPath("$.classToppers[2].rank", is(3)))
+                .andExpect(jsonPath("$.classToppers[0].currentStudent", is(false)))
+                .andExpect(jsonPath("$.classToppers[2].currentStudent", is(true)))
+                .andExpect(jsonPath("$.sectionToppers.length()", is(3)))
+                .andExpect(jsonPath("$.sectionToppers[2].rank", is(3)))
+                .andExpect(jsonPath("$.sectionToppers[2].currentStudent", is(true)))
+                .andExpect(jsonPath("$.subjectToppers.length()", is(6)))
+                .andExpect(jsonPath("$.subjectToppers[2].rank", is(3)))
+                .andExpect(jsonPath("$.subjectToppers[2].currentStudent", is(true)));
+        mvc.perform(get("/api/v1/student/toppers").with(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.classToppers[0].currentStudent", is(false)));
+        mvc.perform(get("/api/v1/student/toppers").with(user("teacher-portal").roles("TEACHER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.classToppers[0].currentStudent", is(false)));
 
         mvc.perform(get("/api/v1/student/profile").with(user("teacher-portal").roles("TEACHER")))
                 .andExpect(status().isForbidden());
@@ -463,6 +588,16 @@ class SchoolManagementApiTest {
         long teacherId = ((Number) com.jayway.jsonpath.JsonPath.read(
                 teacherCreate.getResponse().getContentAsString(), "$.id")).longValue();
         var teacher = user("teacher-portal-user").roles("TEACHER");
+        mvc.perform(get("/api/v1/exams/definitions").with(teacher))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/exams/definitions")
+                        .with(teacher)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Teacher Restricted Exam","academicYear":2026}
+                                """))
+                .andExpect(status().isForbidden());
 
         var studentCreate = mvc.perform(post("/api/v1/people")
                         .with(admin)
@@ -520,22 +655,43 @@ class SchoolManagementApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].fullName", is("Teacher Roster Learner")));
 
+        long examDefinitionId = createTestExamDefinition(admin, "Teacher Test");
         var examResponse = mvc.perform(post("/api/v1/exams")
                         .with(teacher)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"sectionId":%d,"name":"Teacher Test","subject":"Science","maximumMarks":40}
-                                """.formatted(assignedSectionId)))
+                                {"sectionId":%d,"examDefinitionId":%d}
+                                """.formatted(assignedSectionId, examDefinitionId)))
                 .andExpect(status().isCreated())
                 .andReturn();
+        mvc.perform(post("/api/v1/exams")
+                        .with(teacher)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"sectionId":%d,"examDefinitionId":%d}
+                                """.formatted(secondAssignedSectionId, examDefinitionId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.examDefinitionId", is((int) examDefinitionId)));
         long examId = ((Number) com.jayway.jsonpath.JsonPath.read(
                 examResponse.getResponse().getContentAsString(), "$.id")).longValue();
+        var subjectResponse = mvc.perform(post("/api/v1/exams/" + examId + "/subjects")
+                        .with(teacher)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"subject":"Science","maximumMarks":40}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long subjectId = ((Number) com.jayway.jsonpath.JsonPath.read(
+                subjectResponse.getResponse().getContentAsString(), "$.id")).longValue();
         mvc.perform(get("/api/v1/exams")
                         .with(teacher)
                         .param("sectionId", String.valueOf(unassignedSectionId)))
                 .andExpect(status().isForbidden());
-        mvc.perform(post("/api/v1/exams/" + examId + "/marks")
+        mvc.perform(post("/api/v1/exams/subjects/" + subjectId + "/marks")
                         .with(teacher)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -549,6 +705,7 @@ class SchoolManagementApiTest {
                 .andExpect(jsonPath("$.students[0].attendancePercentage", is(100.0)))
                 .andExpect(jsonPath("$.students[0].recordedAttendance", is(1)))
                 .andExpect(jsonPath("$.students[0].marks[0].subject", is("Science")))
+                .andExpect(jsonPath("$.students[0].marks[0].academicYear", is(2026)))
                 .andExpect(jsonPath("$.students[0].dateOfBirth").doesNotExist());
         mvc.perform(get("/api/v1/teacher/sections/" + unassignedSectionId + "/progress").with(teacher))
                 .andExpect(status().isForbidden());
@@ -604,6 +761,22 @@ class SchoolManagementApiTest {
                 result.getResponse().getContentAsString(), "$.id")).longValue();
     }
 
+    private long createTestExamDefinition(
+            org.springframework.test.web.servlet.request.RequestPostProcessor admin,
+            String name) throws Exception {
+        var result = mvc.perform(post("/api/v1/exams/definitions")
+                        .with(admin)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"%s","academicYear":2026}
+                                """.formatted(name)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return ((Number) com.jayway.jsonpath.JsonPath.read(
+                result.getResponse().getContentAsString(), "$.id")).longValue();
+    }
+
     private void saveStudentPortalExam(
             org.springframework.test.web.servlet.request.RequestPostProcessor admin,
             long sectionId,
@@ -612,18 +785,30 @@ class SchoolManagementApiTest {
             double maximumMarks,
             long[] studentIds,
             double[] scores) throws Exception {
+        long examDefinitionId = createTestExamDefinition(admin, examName);
         var examResponse = mvc.perform(post("/api/v1/exams")
                         .with(admin)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"sectionId":%d,"name":"%s","subject":"%s","maximumMarks":%.2f}
-                                """.formatted(sectionId, examName, subject, maximumMarks)))
+                                {"sectionId":%d,"examDefinitionId":%d}
+                                """.formatted(sectionId, examDefinitionId)))
                 .andExpect(status().isCreated())
                 .andReturn();
         long examId = ((Number) com.jayway.jsonpath.JsonPath.read(
                 examResponse.getResponse().getContentAsString(), "$.id")).longValue();
-        mvc.perform(post("/api/v1/exams/" + examId + "/marks")
+        var subjectResponse = mvc.perform(post("/api/v1/exams/" + examId + "/subjects")
+                        .with(admin)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"subject":"%s","maximumMarks":%.2f}
+                                """.formatted(subject, maximumMarks)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long subjectId = ((Number) com.jayway.jsonpath.JsonPath.read(
+                subjectResponse.getResponse().getContentAsString(), "$.id")).longValue();
+        mvc.perform(post("/api/v1/exams/subjects/" + subjectId + "/marks")
                         .with(admin)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
