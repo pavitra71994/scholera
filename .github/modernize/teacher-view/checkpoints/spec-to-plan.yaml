@@ -1,0 +1,135 @@
+# Spec-to-Plan Traceability Checkpoint
+
+metadata:
+  generated: "2026-10-25"
+  source_spec: "User request and confirmed decisions (see research.md)"
+  target_plan: ".github/modernize/teacher-view/plan.md"
+
+summary:
+  total_requirements: 8
+  covered_requirements: 8
+  missing_requirements: 0
+  coverage_percentage: 100.0
+
+requirements:
+  - req_id: "REQ-001"
+    req_description: "Teacher dashboard provides five working cards and navigable pages."
+    priority: "P1"
+    plan_mapping:
+      phase: "Phase-3, Phase-4, Phase-5, Phase-6"
+      phase_name: "Teacher profile and classes; attendance; exams and marks; class progress"
+      items:
+        - item_id: "3.3"
+          description: "Build teacher profile, class, and roster cards"
+        - item_id: "4.2"
+          description: "Implement the teacher attendance card"
+        - item_id: "5.2"
+          description: "Implement the teacher exams and marks card"
+        - item_id: "6.2"
+          description: "Implement Class Progress card"
+    notes: "My Profile is the fifth card."
+  - req_id: "REQ-002"
+    req_description: "Administrators assign and update multiple sections for each teacher."
+    priority: "P1"
+    plan_mapping:
+      phase: "Phase-1, Phase-2"
+      phase_name: "Foundational teacher assignments; US1 — Administrator assigns teacher sections"
+      items:
+        - item_id: "1.1"
+          description: "Persist multiple teacher section assignments"
+        - item_id: "2.1"
+          description: "Assign and update multiple sections"
+    notes: ""
+  - req_id: "REQ-003"
+    req_description: "Teacher profile displays name, username, phone, and assigned sections; teacher edits name and optional phone only."
+    priority: "P1"
+    plan_mapping:
+      phase: "Phase-1, Phase-3"
+      phase_name: "Teacher profile data; US2 — Teacher profile, classes, and roster"
+      items:
+        - item_id: "1.2"
+          description: "Persist teacher phone number"
+        - item_id: "3.1"
+          description: "Serve teacher profile and assigned sections"
+        - item_id: "3.3"
+          description: "Build teacher profile, class, and roster cards"
+    notes: ""
+  - req_id: "REQ-004"
+    req_description: "Teacher can view assigned classes and the roster for each assigned section."
+    priority: "P1"
+    plan_mapping:
+      phase: "Phase-3"
+      phase_name: "US2 — Teacher profile, classes, and roster"
+      items:
+        - item_id: "3.2"
+          description: "Serve assigned section rosters"
+        - item_id: "3.3"
+          description: "Build teacher profile, class, and roster cards"
+    notes: ""
+  - req_id: "REQ-005"
+    req_description: "Teacher can record/update and view attendance only for assigned sections."
+    priority: "P1"
+    plan_mapping:
+      phase: "Phase-4"
+      phase_name: "US3 — Attendance for assigned sections"
+      items:
+        - item_id: "4.1"
+          description: "Allow assigned teachers to record and view attendance"
+        - item_id: "4.2"
+          description: "Implement the teacher attendance card"
+    notes: ""
+  - req_id: "REQ-006"
+    req_description: "Teacher can create exams and enter/update marks only for assigned sections."
+    priority: "P1"
+    plan_mapping:
+      phase: "Phase-5"
+      phase_name: "US4 — Exams and marks for assigned sections"
+      items:
+        - item_id: "5.1"
+          description: "Allow assigned teachers to manage exams and marks"
+        - item_id: "5.2"
+          description: "Implement the teacher exams and marks card"
+    notes: ""
+  - req_id: "REQ-007"
+    req_description: "Teacher can view assigned-section student attendance percentages and exam/subject marks."
+    priority: "P2"
+    plan_mapping:
+      phase: "Phase-6"
+      phase_name: "US5 — Class progress"
+      items:
+        - item_id: "6.1"
+          description: "Serve assigned-section progress"
+        - item_id: "6.2"
+          description: "Implement Class Progress card"
+    notes: "Attendance ratio uses recorded entries only."
+  - req_id: "REQ-008"
+    req_description: "Teacher data and actions are restricted to assignments; administrator and student permissions remain intact."
+    priority: "P1"
+    plan_mapping:
+      phase: "Phase-1 through Phase-6"
+      phase_name: "Teacher assignment and portal authorization"
+      items:
+        - item_id: "1.1"
+          description: "Persist multiple teacher section assignments"
+        - item_id: "2.1"
+          description: "Assign and update multiple sections"
+        - item_id: "3.1"
+          description: "Serve teacher profile and assigned sections"
+        - item_id: "3.2"
+          description: "Serve assigned section rosters"
+        - item_id: "4.1"
+          description: "Allow assigned teachers to record and view attendance"
+        - item_id: "5.1"
+          description: "Allow assigned teachers to manage exams and marks"
+        - item_id: "6.1"
+          description: "Serve assigned-section progress"
+    notes: "Authorization is enforced server-side."
+
+missing_requirements: []
+orphan_plan_items: []
+
+validation:
+  passed: true
+  errors: []
+  warnings:
+    - "No standalone teacher feature specification or architecture artifact existed; scope decisions are documented in research.md."

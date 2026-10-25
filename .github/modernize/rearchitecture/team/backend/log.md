@@ -1,0 +1,6 @@
+## [student-view] Implemented student portal end-to-end
+- Codebase/domain discoveries: person identity is linked through `AppUser`; marks are section-associated through exams; attendance stores submitted records only; the existing API test database persists across methods, so tests should retain IDs from create responses rather than select arbitrary list rows.
+- Wrong assumptions and corrections: an existing test's first-student selection became invalid after more students were created; changed it to use the created student response. Testing Library trees also needed explicit cleanup in this project setup.
+- Debugging dead-ends: first test commands ran from the workspace root and failed because there is no root `package.json`/`mvnw`; module-root commands are the correct validation paths.
+- Techniques/patterns worth reusing: take a pessimistic write lock on the section row before selecting `max(rollNumber)+1`, and keep the unique `(section_id, roll_number)` database constraint as a concurrency backstop. Resolve portal records by authenticated username and avoid client-provided student identifiers. Group totals in repository queries and return only the tied top rows.
+- Learnings consumed: (none)

@@ -1,0 +1,349 @@
+# Tasks-to-Implementation Traceability Checkpoint
+metadata:
+  generated: "2026-10-25"
+  source_tasks: ".github/modernize/student-view/plan.md (inline T001-T013)"
+  last_updated: "2026-10-25"
+
+summary:
+  total_tasks: 13
+  completed_tasks: 13
+  in_progress_tasks: 0
+  pending_tasks: 0
+  completion_percentage: 100.0
+
+tasks:
+  - task_id: "T001"
+    description: "Add nullable student profile fields and section-scoped roll uniqueness."
+    status: "completed"
+    implementation:
+      files_changed:
+        - file: "school-management-api/src/main/resources/db/migration/V4__student_profile_fields.sql"
+          changes:
+            - change_type: "added"
+              description: "Adds DOB, parent names, emergency contact, roll number, positive roll check, and section-roll uniqueness."
+    verification:
+      build_passed: true
+      test_results: {command: "cd school-management-api && ./mvnw -B test", passed: 11, failed: 0, skipped: 0, failures: []}
+      notes: "Flyway V4 applied in H2 integration tests."
+    upstream_trace: {plan_item: "1.1", requirements: ["REQ-002", "REQ-003"], full_trace: "REQ-002, REQ-003 → 1.1 → T001"}
+  - task_id: "T002"
+    description: "Map student fields in SchoolPerson."
+    status: "completed"
+    implementation:
+      files_changed:
+        - file: "school-management-api/src/main/java/com/schoolmanagement/school/SchoolPerson.java"
+          changes:
+            - change_type: "modified"
+              description: "Maps nullable profile/roll fields and permits only display-name/emergency-contact self updates."
+    verification:
+      build_passed: true
+      test_results: {command: "cd school-management-api && ./mvnw -B test", passed: 11, failed: 0, skipped: 0, failures: []}
+      notes: ""
+    upstream_trace: {plan_item: "1.1", requirements: ["REQ-002", "REQ-003"], full_trace: "REQ-002, REQ-003 → 1.1 → T002"}
+  - task_id: "T003"
+    description: "Validate enrollment and allocate section-local roll numbers transactionally."
+    status: "completed"
+    implementation:
+      files_changed:
+        - file: "school-management-api/src/main/java/com/schoolmanagement/school/SchoolPeopleController.java"
+          changes:
+            - change_type: "modified"
+              description: "Validates student DOB/parent names and allocates the next roll number before persisting."
+        - file: "school-management-api/src/main/java/com/schoolmanagement/school/SchoolSectionRepository.java"
+          changes:
+            - change_type: "modified"
+              description: "Adds a pessimistic write-lock lookup for the target section."
+        - file: "school-management-api/src/main/java/com/schoolmanagement/school/SchoolPersonRepository.java"
+          changes:
+            - change_type: "modified"
+              description: "Adds the max roll number query and authenticated username lookup."
+        - file: "school-management-api/src/test/java/com/schoolmanagement/SchoolManagementApiTest.java"
+          changes:
+            - change_type: "modified"
+              description: "Covers sequential numbering and missing required enrollment data."
+    verification:
+      build_passed: true
+      test_results: {command: "cd school-management-api && ./mvnw -B test", passed: 11, failed: 0, skipped: 0, failures: []}
+      notes: ""
+    upstream_trace: {plan_item: "1.2, 2.1", requirements: ["REQ-003"], full_trace: "REQ-003 → 1.2/2.1 → T003"}
+  - task_id: "T004"
+    description: "Add conditional student enrollment fields to the administrator UI and API client."
+    status: "completed"
+    implementation:
+      files_changed:
+        - file: "school-management-ui/src/AdminModules.tsx"
+          changes:
+            - change_type: "modified"
+              description: "Shows required DOB/parent inputs and optional emergency contact for student enrollment."
+        - file: "school-management-ui/src/api.ts"
+          changes:
+            - change_type: "modified"
+              description: "Includes student enrollment profile fields in createPerson payload."
+    verification:
+      build_passed: true
+      test_results: {command: "cd school-management-ui && npm test", passed: 5, failed: 0, skipped: 0, failures: []}
+      notes: "UI build passed."
+    upstream_trace: {plan_item: "2.1", requirements: ["REQ-003"], full_trace: "REQ-003 → 2.1 → T004"}
+  - task_id: "T005"
+    description: "Add authenticated student-only self-profile read and update endpoints."
+    status: "completed"
+    implementation:
+      files_changed:
+        - file: "school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java"
+          changes:
+            - change_type: "added"
+              description: "Reads by authenticated username and accepts only displayName/emergencyContact on update."
+        - file: "school-management-api/src/test/java/com/schoolmanagement/SchoolManagementApiTest.java"
+          changes:
+            - change_type: "modified"
+              description: "Verifies self-scoping, writable fields, and student-only access."
+    verification:
+      build_passed: true
+      test_results: {command: "cd school-management-api && ./mvnw -B test", passed: 11, failed: 0, skipped: 0, failures: []}
+      notes: "Runtime GET/PATCH profile probes returned 200."
+    upstream_trace: {plan_item: "3.1", requirements: ["REQ-002", "REQ-007"], full_trace: "REQ-002, REQ-007 → 3.1 → T005"}
+  - task_id: "T006"
+    description: "Add student profile types and API methods."
+    status: "completed"
+    implementation:
+      files_changed:
+        - file: "school-management-ui/src/api.ts"
+          changes:
+            - change_type: "modified"
+              description: "Adds profile DTO and GET/PATCH client methods."
+    verification:
+      build_passed: true
+      test_results: {command: "cd school-management-ui && npm test", passed: 5, failed: 0, skipped: 0, failures: []}
+      notes: "UI build passed."
+    upstream_trace: {plan_item: "3.2", requirements: ["REQ-001", "REQ-002"], full_trace: "REQ-001, REQ-002 → 3.2 → T006"}
+  - task_id: "T007"
+    description: "Add student route state, dashboard cards, profile UI, and responsive styles."
+    status: "completed"
+    implementation:
+      files_changed:
+        - file: "school-management-ui/src/App.tsx"
+          changes:
+            - change_type: "modified"
+              description: "Adds student-specific routes, login landing, working cards, and profile UI."
+        - file: "school-management-ui/src/styles.css"
+          changes:
+            - change_type: "modified"
+              description: "Adds responsive student portal styles."
+        - file: "school-management-ui/src/App.test.tsx"
+          changes:
+            - change_type: "modified"
+              description: "Tests student card navigation and read-only/editable profile fields."
+    verification:
+      build_passed: true
+      test_results: {command: "cd school-management-ui && npm test", passed: 5, failed: 0, skipped: 0, failures: []}
+      notes: "UI build passed."
+    upstream_trace: {plan_item: "3.2", requirements: ["REQ-001", "REQ-002"], full_trace: "REQ-001, REQ-002 → 3.2 → T007"}
+  - task_id: "T008"
+    description: "Add authenticated student-scoped exam history."
+    status: "completed"
+    implementation:
+      files_changed:
+        - file: "school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java"
+          changes:
+            - change_type: "modified"
+              description: "Adds student-only exam rows with obtained/max marks and percentage."
+        - file: "school-management-api/src/main/java/com/schoolmanagement/school/ExamMarkRepository.java"
+          changes:
+            - change_type: "modified"
+              description: "Adds ordered history query with exam relations loaded."
+        - file: "school-management-api/src/test/java/com/schoolmanagement/SchoolManagementApiTest.java"
+          changes:
+            - change_type: "modified"
+              description: "Tests per-student result values and percentage."
+    verification:
+      build_passed: true
+      test_results: {command: "cd school-management-api && ./mvnw -B test", passed: 11, failed: 0, skipped: 0, failures: []}
+      notes: "Runtime GET exam-history probe returned 200."
+    upstream_trace: {plan_item: "4.1", requirements: ["REQ-004", "REQ-007"], full_trace: "REQ-004, REQ-007 → 4.1 → T008"}
+  - task_id: "T009"
+    description: "Add student exam history UI."
+    status: "completed"
+    implementation:
+      files_changed:
+        - file: "school-management-ui/src/api.ts"
+          changes:
+            - change_type: "modified"
+              description: "Adds exam history response types and client function."
+        - file: "school-management-ui/src/App.tsx"
+          changes:
+            - change_type: "modified"
+              description: "Displays subject, exam, obtained/max marks, percentage, loading/error, and empty state."
+        - file: "school-management-ui/src/styles.css"
+          changes:
+            - change_type: "modified"
+              description: "Styles responsive student result table."
+        - file: "school-management-ui/src/App.test.tsx"
+          changes:
+            - change_type: "modified"
+              description: "Covers the results page navigation and rendered marks/percentage."
+    verification:
+      build_passed: true
+      test_results: {command: "cd school-management-ui && npm test", passed: 5, failed: 0, skipped: 0, failures: []}
+      notes: "UI build passed."
+    upstream_trace: {plan_item: "4.1", requirements: ["REQ-004", "REQ-007"], full_trace: "REQ-004, REQ-007 → 4.1 → T009"}
+  - task_id: "T010"
+    description: "Add authenticated student attendance history and recorded-entry summary."
+    status: "completed"
+    implementation:
+      files_changed:
+        - file: "school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java"
+          changes:
+            - change_type: "modified"
+              description: "Returns dated self records, status counts, and percentage over recorded days only."
+        - file: "school-management-api/src/main/java/com/schoolmanagement/school/AttendanceRecordRepository.java"
+          changes:
+            - change_type: "modified"
+              description: "Adds newest-first student history query."
+        - file: "school-management-api/src/main/java/com/schoolmanagement/school/AttendanceRecord.java"
+          changes:
+            - change_type: "modified"
+              description: "Exposes the recorded attendance date."
+        - file: "school-management-api/src/test/java/com/schoolmanagement/SchoolManagementApiTest.java"
+          changes:
+            - change_type: "modified"
+              description: "Covers present/absent/late counts and recorded-day attendance ratio."
+    verification:
+      build_passed: true
+      test_results: {command: "cd school-management-api && ./mvnw -B test", passed: 11, failed: 0, skipped: 0, failures: []}
+      notes: "Runtime GET attendance-history probe returned 200."
+    upstream_trace: {plan_item: "4.2", requirements: ["REQ-005", "REQ-007"], full_trace: "REQ-005, REQ-007 → 4.2 → T010"}
+  - task_id: "T011"
+    description: "Add attendance history and summary UI."
+    status: "completed"
+    implementation:
+      files_changed:
+        - file: "school-management-ui/src/api.ts"
+          changes:
+            - change_type: "modified"
+              description: "Adds attendance history response type and client function."
+        - file: "school-management-ui/src/App.tsx"
+          changes:
+            - change_type: "modified"
+              description: "Renders Present/Absent/Late totals, percentage, dated rows, and empty state."
+        - file: "school-management-ui/src/styles.css"
+          changes:
+            - change_type: "modified"
+              description: "Styles attendance summary and history table."
+        - file: "school-management-ui/src/App.test.tsx"
+          changes:
+            - change_type: "modified"
+              description: "Covers recorded-day percentage and attendance history."
+    verification:
+      build_passed: true
+      test_results: {command: "cd school-management-ui && npm test", passed: 5, failed: 0, skipped: 0, failures: []}
+      notes: "UI build passed."
+    upstream_trace: {plan_item: "4.2", requirements: ["REQ-005", "REQ-007"], full_trace: "REQ-005, REQ-007 → 4.2 → T011"}
+  - task_id: "T012"
+    description: "Add grouped class/section/subject toppers, ranking raw totals and retaining ties."
+    status: "completed"
+    implementation:
+      files_changed:
+        - file: "school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java"
+          changes:
+            - change_type: "modified"
+              description: "Returns top rank ties only for the current student's class and section."
+        - file: "school-management-api/src/main/java/com/schoolmanagement/school/ExamMarkRepository.java"
+          changes:
+            - change_type: "modified"
+              description: "Adds grouped raw obtained-mark aggregate projections."
+        - file: "school-management-api/src/test/java/com/schoolmanagement/SchoolManagementApiTest.java"
+          changes:
+            - change_type: "modified"
+              description: "Tests class/section top ties and subject top grouping."
+    verification:
+      build_passed: true
+      test_results: {command: "cd school-management-api && ./mvnw -B test", passed: 11, failed: 0, skipped: 0, failures: []}
+      notes: "Runtime GET toppers probe returned 200."
+    upstream_trace: {plan_item: "5.1", requirements: ["REQ-006", "REQ-007"], full_trace: "REQ-006, REQ-007 → 5.1 → T012"}
+  - task_id: "T013"
+    description: "Add class, section, and subject leaderboard UI."
+    status: "completed"
+    implementation:
+      files_changed:
+        - file: "school-management-ui/src/api.ts"
+          changes:
+            - change_type: "modified"
+              description: "Adds leaderboard response types and client function."
+        - file: "school-management-ui/src/App.tsx"
+          changes:
+            - change_type: "modified"
+              description: "Displays class-total, section-total, and class-by-subject leaders with tied rank."
+        - file: "school-management-ui/src/styles.css"
+          changes:
+            - change_type: "modified"
+              description: "Adds responsive leaderboard cards."
+        - file: "school-management-ui/src/App.test.tsx"
+          changes:
+            - change_type: "modified"
+              description: "Covers topper page navigation and leader display."
+    verification:
+      build_passed: true
+      test_results: {command: "cd school-management-ui && npm test", passed: 5, failed: 0, skipped: 0, failures: []}
+      notes: "UI build passed."
+    upstream_trace: {plan_item: "5.1", requirements: ["REQ-006", "REQ-007"], full_trace: "REQ-006, REQ-007 → 5.1 → T013"}
+
+pending_tasks: []
+untracked_changes: []
+
+traceability_chain:
+  - chain_id: "REQ-001"
+    requirement: "Four student dashboard cards open working pages."
+    plan_phase: "Phase 3"
+    plan_item: "3.2"
+    tasks: ["T006", "T007"]
+    files: ["school-management-ui/src/api.ts", "school-management-ui/src/App.tsx", "school-management-ui/src/styles.css"]
+    status: "complete"
+  - chain_id: "REQ-002"
+    requirement: "Student profile data is visible; only display name and emergency contact are editable."
+    plan_phase: "Phases 1 and 3"
+    plan_item: "1.1, 3.1, 3.2"
+    tasks: ["T001", "T002", "T005", "T006", "T007"]
+    files: ["school-management-api/src/main/java/com/schoolmanagement/school/SchoolPerson.java", "school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java", "school-management-ui/src/App.tsx"]
+    status: "complete"
+  - chain_id: "REQ-003"
+    requirement: "New student enrollment requires DOB and parent names and allocates section-local roll numbers."
+    plan_phase: "Phases 1 and 2"
+    plan_item: "1.1, 1.2, 2.1"
+    tasks: ["T001", "T002", "T003", "T004"]
+    files: ["school-management-api/src/main/resources/db/migration/V4__student_profile_fields.sql", "school-management-api/src/main/java/com/schoolmanagement/school/SchoolPeopleController.java", "school-management-ui/src/AdminModules.tsx"]
+    status: "complete"
+  - chain_id: "REQ-004"
+    requirement: "Student can view own exam history with obtained/max marks and percentage."
+    plan_phase: "Phase 4"
+    plan_item: "4.1"
+    tasks: ["T008", "T009"]
+    files: ["school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java", "school-management-ui/src/App.tsx"]
+    status: "complete"
+  - chain_id: "REQ-005"
+    requirement: "Student can view dated attendance and recorded-entry summary."
+    plan_phase: "Phase 4"
+    plan_item: "4.2"
+    tasks: ["T010", "T011"]
+    files: ["school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java", "school-management-ui/src/App.tsx"]
+    status: "complete"
+  - chain_id: "REQ-006"
+    requirement: "Student can view class-total, section-total, and class-subject top raw marks including ties."
+    plan_phase: "Phase 5"
+    plan_item: "5.1"
+    tasks: ["T012", "T013"]
+    files: ["school-management-api/src/main/java/com/schoolmanagement/school/ExamMarkRepository.java", "school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java", "school-management-ui/src/App.tsx"]
+    status: "complete"
+  - chain_id: "REQ-007"
+    requirement: "Student data endpoints are role protected and self scoped apart from aggregate toppers."
+    plan_phase: "Phases 3, 4, and 5"
+    plan_item: "3.1, 4.1, 4.2, 5.1"
+    tasks: ["T005", "T008", "T010", "T012"]
+    files: ["school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java", "school-management-api/src/test/java/com/schoolmanagement/SchoolManagementApiTest.java"]
+    status: "complete"
+
+validation:
+  passed: true
+  errors: []
+  warnings:
+    - "Node v23.8.0 is outside the UI package's declared engine range (^24.0.0 || >=26.0.0), though tests and build passed."
+  blocking_issues: []

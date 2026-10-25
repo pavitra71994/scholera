@@ -1,0 +1,133 @@
+# Plan-to-Tasks Traceability Checkpoint
+
+metadata:
+  generated: "2026-10-25"
+  source_plan: ".github/modernize/student-view/plan.md"
+  target_tasks: ".github/modernize/student-view/plan.md (inline task breakdown)"
+
+summary:
+  total_plan_items: 8
+  covered_plan_items: 8
+  missing_plan_items: 0
+  coverage_percentage: 100.0
+  total_tasks_generated: 13
+  orphan_tasks: 0
+
+phases:
+  - phase_id: "Phase-1"
+    phase_name: "Foundational student data"
+    items:
+      - item_id: "1.1"
+        description: "Add student profile fields"
+        tasks:
+          - task_id: "T001"
+            description: "Add the student profile fields and roll number database migration."
+          - task_id: "T002"
+            description: "Map the new student fields in SchoolPerson."
+        notes: ""
+      - item_id: "1.2"
+        description: "Assign roll numbers safely"
+        tasks:
+          - task_id: "T003"
+            description: "Allocate a unique sequential roll number in the section during student creation."
+        notes: ""
+  - phase_id: "Phase-2"
+    phase_name: "US1 — Administrator student enrollment"
+    items:
+      - item_id: "2.1"
+        description: "Collect required student profile data during enrollment"
+        tasks:
+          - task_id: "T003"
+            description: "Validate required DOB and parent names during student creation."
+          - task_id: "T004"
+            description: "Add conditional student details to the admin enrollment form."
+        notes: ""
+  - phase_id: "Phase-3"
+    phase_name: "US2 — Student dashboard and profile"
+    items:
+      - item_id: "3.1"
+        description: "Serve and update the signed-in student's own profile"
+        tasks:
+          - task_id: "T005"
+            description: "Add authenticated student-only profile read and update APIs."
+        notes: ""
+      - item_id: "3.2"
+        description: "Make student cards navigable and implement My Profile"
+        tasks:
+          - task_id: "T006"
+            description: "Add profile client types and API functions."
+          - task_id: "T007"
+            description: "Implement student routes, working cards, and profile UI."
+        notes: ""
+  - phase_id: "Phase-4"
+    phase_name: "US3 — Exam results and attendance history"
+    items:
+      - item_id: "4.1"
+        description: "Provide the student's exam and marks history"
+        tasks:
+          - task_id: "T008"
+            description: "Add student-scoped exam history API."
+          - task_id: "T009"
+            description: "Implement the exam results UI."
+        notes: ""
+      - item_id: "4.2"
+        description: "Provide attendance history and summary"
+        tasks:
+          - task_id: "T010"
+            description: "Add student-scoped attendance history and summary API."
+          - task_id: "T011"
+            description: "Implement the attendance history UI."
+        notes: ""
+  - phase_id: "Phase-5"
+    phase_name: "US4 — Student toppers"
+    items:
+      - item_id: "5.1"
+        description: "Display class, section, and subject toppers"
+        tasks:
+          - task_id: "T012"
+            description: "Add grouped total-mark leaderboard API."
+          - task_id: "T013"
+            description: "Implement the three leaderboard views."
+        notes: ""
+
+missing_plan_items: []
+orphan_tasks: []
+
+upstream_trace:
+  - plan_item: "1.1"
+    source_requirements: ["REQ-002", "REQ-003"]
+    tasks: ["T001", "T002"]
+    full_trace: "REQ-002, REQ-003 → Phase-1.1 → T001,T002"
+  - plan_item: "1.2"
+    source_requirements: ["REQ-003"]
+    tasks: ["T003"]
+    full_trace: "REQ-003 → Phase-1.2 → T003"
+  - plan_item: "2.1"
+    source_requirements: ["REQ-003"]
+    tasks: ["T003", "T004"]
+    full_trace: "REQ-003 → Phase-2.1 → T003,T004"
+  - plan_item: "3.1"
+    source_requirements: ["REQ-002", "REQ-007"]
+    tasks: ["T005"]
+    full_trace: "REQ-002,REQ-007 → Phase-3.1 → T005"
+  - plan_item: "3.2"
+    source_requirements: ["REQ-001", "REQ-002"]
+    tasks: ["T006", "T007"]
+    full_trace: "REQ-001,REQ-002 → Phase-3.2 → T006,T007"
+  - plan_item: "4.1"
+    source_requirements: ["REQ-004", "REQ-007"]
+    tasks: ["T008", "T009"]
+    full_trace: "REQ-004,REQ-007 → Phase-4.1 → T008,T009"
+  - plan_item: "4.2"
+    source_requirements: ["REQ-005", "REQ-007"]
+    tasks: ["T010", "T011"]
+    full_trace: "REQ-005,REQ-007 → Phase-4.2 → T010,T011"
+  - plan_item: "5.1"
+    source_requirements: ["REQ-006", "REQ-007"]
+    tasks: ["T012", "T013"]
+    full_trace: "REQ-006,REQ-007 → Phase-5.1 → T012,T013"
+
+validation:
+  passed: true
+  errors: []
+  warnings: []

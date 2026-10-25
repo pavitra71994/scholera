@@ -55,10 +55,19 @@ npm run build        # Type-check and create the production bundle in dist/
 
 ## Layout
 
-- `src/App.tsx` — sign-in, role-aware workspace, admin dashboard, and page routing.
-- `src/AdminModules.tsx` — student/teacher, attendance, and exam/marks admin pages.
-- `src/api.ts` — API types, session/CSRF handling, and endpoint clients.
-- `src/styles.css` — responsive application styling.
-- `src/App.test.tsx` — UI and admin navigation tests.
+- `public/` — files served directly without importing them.
+- `src/assets/` — imported images, icons, and fonts.
+- `src/components/` — reusable UI and role-specific dashboard panels.
+- `src/pages/` — login and authenticated workspace screens.
+- `src/routes/` — hash-route parsing; role-specific page access is selected in the workspace.
+- `src/hooks/` — authentication and section-loading hooks.
+- `src/services/` — API requests, session, and CSRF handling.
+- `src/types/` — shared TypeScript API and domain types.
+- `src/constants/` — fixed dashboard page definitions and labels.
+- `src/utils/` — shared helpers such as local-date and person-class formatting.
+- `src/styles/` — global responsive application styling.
+- `src/tests/` — UI and navigation tests plus test setup.
+
+`src/context/` and `src/store/` are intentionally not used yet: current shared session state is contained in the auth hook, and the application has no Context, Redux, or Zustand requirement.
 
 The workspace overview is in the [root README](../README.md).

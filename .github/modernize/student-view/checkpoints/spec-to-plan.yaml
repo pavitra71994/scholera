@@ -1,0 +1,107 @@
+# Spec-to-Plan Traceability Checkpoint
+
+metadata:
+  generated: "2026-10-25"
+  source_spec: "User request and confirmed decisions (see research.md)"
+  target_plan: ".github/modernize/student-view/plan.md"
+
+summary:
+  total_requirements: 7
+  covered_requirements: 7
+  missing_requirements: 0
+  coverage_percentage: 100.0
+
+requirements:
+  - req_id: "REQ-001"
+    req_description: "Student dashboard presents four working cards for profile, results, attendance, and toppers."
+    priority: "P1"
+    plan_mapping:
+      phase: "Phase-3"
+      phase_name: "US2 — Student dashboard and profile"
+      items:
+        - item_id: "3.2"
+          description: "Make student cards navigable and implement My Profile"
+    notes: "Card destinations reuse the four student areas already named in App.tsx."
+  - req_id: "REQ-002"
+    req_description: "Student profile shows requested student/parent/class data and allows editing name and emergency contact only."
+    priority: "P1"
+    plan_mapping:
+      phase: "Phase-1, Phase-3"
+      phase_name: "Foundational student data; US2 — Student dashboard and profile"
+      items:
+        - item_id: "1.1"
+          description: "Add student profile fields"
+        - item_id: "3.1"
+          description: "Serve and update the signed-in student's own profile"
+        - item_id: "3.2"
+          description: "Make student cards navigable and implement My Profile"
+    notes: ""
+  - req_id: "REQ-003"
+    req_description: "Admin enrollment captures required DOB and parent names and assigns an automatic section-scoped roll number."
+    priority: "P1"
+    plan_mapping:
+      phase: "Phase-1, Phase-2"
+      phase_name: "Foundational student data; US1 — Administrator student enrollment"
+      items:
+        - item_id: "1.1"
+          description: "Add student profile fields"
+        - item_id: "1.2"
+          description: "Assign roll numbers safely"
+        - item_id: "2.1"
+          description: "Collect required student profile data during enrollment"
+    notes: ""
+  - req_id: "REQ-004"
+    req_description: "Student can view exam and marks history with marks and percentage."
+    priority: "P1"
+    plan_mapping:
+      phase: "Phase-4"
+      phase_name: "US3 — Exam results and attendance history"
+      items:
+        - item_id: "4.1"
+          description: "Provide the student's exam and marks history"
+    notes: ""
+  - req_id: "REQ-005"
+    req_description: "Student can view dated attendance history and summary based on recorded days."
+    priority: "P1"
+    plan_mapping:
+      phase: "Phase-4"
+      phase_name: "US3 — Exam results and attendance history"
+      items:
+        - item_id: "4.2"
+          description: "Provide attendance history and summary"
+    notes: ""
+  - req_id: "REQ-006"
+    req_description: "Student can view class-total, section-total, and class-by-subject toppers ranked by total marks."
+    priority: "P2"
+    plan_mapping:
+      phase: "Phase-5"
+      phase_name: "US4 — Student toppers"
+      items:
+        - item_id: "5.1"
+          description: "Display class, section, and subject toppers"
+    notes: "User confirmed ranking scopes and total-marks basis."
+  - req_id: "REQ-007"
+    req_description: "Student endpoints are role-protected and self-scoped, except for requested aggregate leaderboards."
+    priority: "P1"
+    plan_mapping:
+      phase: "Phase-3, Phase-4, Phase-5"
+      phase_name: "Student profile, records, and leaderboards"
+      items:
+        - item_id: "3.1"
+          description: "Serve and update the signed-in student's own profile"
+        - item_id: "4.1"
+          description: "Provide the student's exam and marks history"
+        - item_id: "4.2"
+          description: "Provide attendance history and summary"
+        - item_id: "5.1"
+          description: "Display class, section, and subject toppers"
+    notes: "Individual profile, exam, and attendance data is resolved from the authenticated principal."
+
+missing_requirements: []
+orphan_plan_items: []
+
+validation:
+  passed: true
+  errors: []
+  warnings:
+    - "No separate feature-spec or architecture artifact existed; scope and decisions are recorded in research.md."

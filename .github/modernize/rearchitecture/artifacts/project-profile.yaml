@@ -1,0 +1,49 @@
+project:
+  scope_path: "."
+  loc: 3967
+  languages: [Java, JavaScript/TypeScript]
+  git: true
+  structure:
+    school-management-api: "Java API module with Maven manifest"
+    school-management-ui: "JavaScript/TypeScript UI module with npm manifest"
+    .github/modernize/teacher-view: "Existing teacher portal implementation plan and research inputs"
+  notes: "Small two-module school management application. Existing worktree contains user changes in API/UI source and tests plus untracked files; workers must preserve all pre-existing changes. LOC is approximate from recon."
+
+assessment:
+  change_type: upgrade
+  rationale: |
+    The request adds teacher-portal capabilities to the existing application and
+    explicitly requires preservation of student behavior and existing role
+    permissions. No stack or output-location migration is requested; treat this
+    as an in-place feature modernization.
+  transformations:
+    - fromStack: "Existing Java/Maven API"
+      fromStackVersion: "To be confirmed from repository artifacts"
+      toStack: "Existing Java/Maven API"
+      toStackVersion: "No version change requested"
+    - fromStack: "Existing JavaScript/TypeScript UI"
+      fromStackVersion: "To be confirmed from repository artifacts"
+      toStack: "Existing JavaScript/TypeScript UI"
+      toStackVersion: "No version change requested"
+  grouping_needed: false
+  deep_planning: undecided
+
+progress_sync:
+  run_id: "0A38A2E8-B1F6-4D97-B04C-19DEE6DB2447"
+  grouping_mode: none
+  execution_mode: undecided
+  plan_start_time: "2026-10-25T07:20:46Z"
+  plan_completed_time: null
+  execution_start_time: null
+  execution_completed_time: null
+  validation_start_time: null
+  validation_completed_time: null
+  total_phases: 0
+  completed_phases: 0
+  total_modules: 2
+  completed_modules: 0
+  total_tasks: 0
+  completed_tasks: 0
+  total_commits: 1
+  build_verified: false
+  test_verified: false

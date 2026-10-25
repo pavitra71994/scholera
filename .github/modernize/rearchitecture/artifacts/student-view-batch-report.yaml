@@ -1,0 +1,142 @@
+batch_id: "student-view"
+completed_tasks: ["T001", "T002", "T003", "T004", "T005", "T006", "T007", "T008", "T009", "T010", "T011", "T012", "T013"]
+blocked_tasks: []
+files_changed:
+  T001:
+    - file: "school-management-api/src/main/resources/db/migration/V4__student_profile_fields.sql"
+      change_type: "created"
+      description: "Adds nullable student profile fields and section roll uniqueness."
+  T002:
+    - file: "school-management-api/src/main/java/com/schoolmanagement/school/SchoolPerson.java"
+      change_type: "modified"
+      description: "Maps student profile data and editable self-service fields."
+  T003:
+    - file: "school-management-api/src/main/java/com/schoolmanagement/school/SchoolPeopleController.java"
+      change_type: "modified"
+      description: "Validates enrollment and assigns roll numbers transactionally."
+    - file: "school-management-api/src/main/java/com/schoolmanagement/school/SchoolSectionRepository.java"
+      change_type: "modified"
+      description: "Locks the target section row during sequence allocation."
+    - file: "school-management-api/src/main/java/com/schoolmanagement/school/SchoolPersonRepository.java"
+      change_type: "modified"
+      description: "Queries current section max roll and resolves profile by username."
+  T004:
+    - file: "school-management-ui/src/AdminModules.tsx"
+      change_type: "modified"
+      description: "Collects required DOB and parent names plus optional emergency contact."
+    - file: "school-management-ui/src/api.ts"
+      change_type: "modified"
+      description: "Extends student enrollment request payload."
+  T005:
+    - file: "school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java"
+      change_type: "created"
+      description: "Adds principal-scoped student profile GET/PATCH."
+  T006:
+    - file: "school-management-ui/src/api.ts"
+      change_type: "modified"
+      description: "Adds profile types and read/update client functions."
+  T007:
+    - file: "school-management-ui/src/App.tsx"
+      change_type: "modified"
+      description: "Adds student route navigation and profile page."
+    - file: "school-management-ui/src/styles.css"
+      change_type: "modified"
+      description: "Adds responsive student profile styling."
+  T008:
+    - file: "school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java"
+      change_type: "modified"
+      description: "Adds self-scoped exam history."
+    - file: "school-management-api/src/main/java/com/schoolmanagement/school/ExamMarkRepository.java"
+      change_type: "modified"
+      description: "Adds ordered exam history query."
+  T009:
+    - file: "school-management-ui/src/api.ts"
+      change_type: "modified"
+      description: "Adds exam history types/client."
+    - file: "school-management-ui/src/App.tsx"
+      change_type: "modified"
+      description: "Adds results history display and empty/error states."
+  T010:
+    - file: "school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java"
+      change_type: "modified"
+      description: "Adds dated attendance history and recorded-day summary."
+    - file: "school-management-api/src/main/java/com/schoolmanagement/school/AttendanceRecordRepository.java"
+      change_type: "modified"
+      description: "Adds ordered self attendance query."
+    - file: "school-management-api/src/main/java/com/schoolmanagement/school/AttendanceRecord.java"
+      change_type: "modified"
+      description: "Exposes the attendance date for history responses."
+  T011:
+    - file: "school-management-ui/src/api.ts"
+      change_type: "modified"
+      description: "Adds attendance history DTO/client."
+    - file: "school-management-ui/src/App.tsx"
+      change_type: "modified"
+      description: "Adds summary counts, recorded-day percentage, and history."
+  T012:
+    - file: "school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java"
+      change_type: "modified"
+      description: "Returns class/section/subject top-ranked ties."
+    - file: "school-management-api/src/main/java/com/schoolmanagement/school/ExamMarkRepository.java"
+      change_type: "modified"
+      description: "Groups obtained marks for the requested leaderboard scopes."
+  T013:
+    - file: "school-management-ui/src/api.ts"
+      change_type: "modified"
+      description: "Adds topper DTO/client."
+    - file: "school-management-ui/src/App.tsx"
+      change_type: "modified"
+      description: "Adds three leaderboard views with tie ranks."
+    - file: "school-management-ui/src/styles.css"
+      change_type: "modified"
+      description: "Adds responsive leaderboard cards."
+tests:
+  - command: "cd school-management-api && ./mvnw -B test"
+    passed: 11
+    failed: 0
+    skipped: 0
+    failures: []
+  - command: "cd school-management-ui && npm test"
+    passed: 5
+    failed: 0
+    skipped: 0
+    failures: []
+builds:
+  - command: "cd school-management-api && ./mvnw -B package"
+    result: "passed"
+  - command: "cd school-management-ui && npm run build"
+    result: "passed"
+upstream_artifacts_consumed:
+  - artifact: ".github/modernize/student-view/plan.md"
+    used_for: "Approved T001-T013 implementation sequence and REQ-001–REQ-007 traceability."
+  - artifact: ".github/modernize/student-view/research.md"
+    used_for: "Confirmed enrollment, privacy, attendance, and leaderboard behavior."
+  - artifact: ".github/modernize/student-view/checkpoints/plan-to-tasks.yaml"
+    used_for: "Verified plan item coverage by existing task breakdown."
+  - artifact: ".github/modernize/student-view/checkpoints/spec-to-plan.yaml"
+    used_for: "Verified requirement mapping."
+evidence_mapping:
+  - upstream: ".github/modernize/student-view/plan.md#T001-T003"
+    output: "V4 migration, SchoolPerson, SchoolPeopleController, SchoolSectionRepository, SchoolPersonRepository"
+    evidence: "API integration tests pass; section roll numbers are verified as 1, 2, 3 and required DOB/parent validation is covered."
+  - upstream: ".github/modernize/student-view/plan.md#T004-T007"
+    output: "AdminModules.tsx, api.ts, App.tsx, styles.css"
+    evidence: "UI tests cover student form requirements, routes, profile read-only/editable fields; UI build passes."
+  - upstream: ".github/modernize/student-view/plan.md#T008-T011"
+    output: "StudentPortalController, ExamMarkRepository, AttendanceRecordRepository, UI history pages"
+    evidence: "API tests validate self records/percentage; UI tests validate rendered history; runtime GET probes return 200."
+  - upstream: ".github/modernize/student-view/plan.md#T012-T013"
+    output: "ExamMarkRepository, StudentPortalController, topper UI"
+    evidence: "API tests validate aggregate totals and ties; UI test validates topper view; runtime GET probe returns 200."
+traceability:
+  - {requirement: "REQ-001", plan_item: "3.2", task: "T007", files: ["school-management-ui/src/App.tsx", "school-management-ui/src/styles.css"], status: "completed"}
+  - {requirement: "REQ-002", plan_item: "1.1/3.1/3.2", task: "T001/T002/T005/T007", files: ["school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java", "school-management-ui/src/App.tsx"], status: "completed"}
+  - {requirement: "REQ-003", plan_item: "1.1/1.2/2.1", task: "T001/T003/T004", files: ["school-management-api/src/main/java/com/schoolmanagement/school/SchoolPeopleController.java", "school-management-ui/src/AdminModules.tsx"], status: "completed"}
+  - {requirement: "REQ-004", plan_item: "4.1", task: "T008/T009", files: ["school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java", "school-management-ui/src/App.tsx"], status: "completed"}
+  - {requirement: "REQ-005", plan_item: "4.2", task: "T010/T011", files: ["school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java", "school-management-ui/src/App.tsx"], status: "completed"}
+  - {requirement: "REQ-006", plan_item: "5.1", task: "T012/T013", files: ["school-management-api/src/main/java/com/schoolmanagement/school/ExamMarkRepository.java", "school-management-ui/src/App.tsx"], status: "completed"}
+  - {requirement: "REQ-007", plan_item: "3.1/4.1/4.2/5.1", task: "T005/T008/T010/T012", files: ["school-management-api/src/main/java/com/schoolmanagement/school/StudentPortalController.java"], status: "completed"}
+protocol_violation: false
+errors: []
+warnings:
+  - "Node v23.8.0 is outside the UI package engine range (^24.0.0 || >=26.0.0), though test and build succeeded."

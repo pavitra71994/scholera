@@ -1,0 +1,172 @@
+# Plan-to-Tasks Traceability Checkpoint
+
+metadata:
+  generated: "2026-10-25"
+  source_plan: ".github/modernize/teacher-view/plan.md"
+  target_tasks: ".github/modernize/teacher-view/plan.md (inline task breakdown)"
+
+summary:
+  total_plan_items: 12
+  covered_plan_items: 12
+  missing_plan_items: 0
+  coverage_percentage: 100.0
+  total_tasks_generated: 16
+  orphan_tasks: 0
+
+phases:
+  - phase_id: "Phase-1"
+    phase_name: "Foundational teacher assignments and profile data"
+    items:
+      - item_id: "1.1"
+        description: "Persist multiple teacher section assignments"
+        tasks:
+          - task_id: "T001"
+            description: "Create teacher-section assignment schema."
+          - task_id: "T002"
+            description: "Map assignments and add assignment queries."
+        notes: ""
+      - item_id: "1.2"
+        description: "Persist teacher phone number"
+        tasks:
+          - task_id: "T003"
+            description: "Add optional phone field for teachers."
+        notes: ""
+  - phase_id: "Phase-2"
+    phase_name: "US1 — Administrator assigns teacher sections"
+    items:
+      - item_id: "2.1"
+        description: "Assign and update multiple sections"
+        tasks:
+          - task_id: "T004"
+            description: "Persist validated teacher section assignments."
+          - task_id: "T005"
+            description: "Add admin assignment controls."
+        notes: ""
+  - phase_id: "Phase-3"
+    phase_name: "US2 — Teacher profile, classes, and roster"
+    items:
+      - item_id: "3.1"
+        description: "Serve teacher profile and assigned sections"
+        tasks:
+          - task_id: "T006"
+            description: "Add teacher-only profile read/update endpoints."
+        notes: ""
+      - item_id: "3.2"
+        description: "Serve assigned section rosters"
+        tasks:
+          - task_id: "T007"
+            description: "Add assignment-scoped section and roster endpoint."
+        notes: ""
+      - item_id: "3.3"
+        description: "Build teacher profile, class, and roster cards"
+        tasks:
+          - task_id: "T008"
+            description: "Add teacher profile, sections, and roster API client."
+          - task_id: "T009"
+            description: "Implement teacher routes and profile/roster pages."
+        notes: ""
+  - phase_id: "Phase-4"
+    phase_name: "US3 — Attendance for assigned sections"
+    items:
+      - item_id: "4.1"
+        description: "Allow assigned teachers to record and view attendance"
+        tasks:
+          - task_id: "T010"
+            description: "Enforce teacher assignment authorization on attendance operations."
+        notes: ""
+      - item_id: "4.2"
+        description: "Implement the teacher attendance card"
+        tasks:
+          - task_id: "T011"
+            description: "Add assigned-section attendance API operations."
+          - task_id: "T012"
+            description: "Implement the teacher attendance page."
+        notes: ""
+  - phase_id: "Phase-5"
+    phase_name: "US4 — Exams and marks for assigned sections"
+    items:
+      - item_id: "5.1"
+        description: "Allow assigned teachers to manage exams and marks"
+        tasks:
+          - task_id: "T013"
+            description: "Enforce assignment-based exam and marks authorization."
+        notes: ""
+      - item_id: "5.2"
+        description: "Implement the teacher exams and marks card"
+        tasks:
+          - task_id: "T014"
+            description: "Implement teacher exam creation and marks entry UI."
+        notes: ""
+  - phase_id: "Phase-6"
+    phase_name: "US5 — Class progress"
+    items:
+      - item_id: "6.1"
+        description: "Serve assigned-section progress"
+        tasks:
+          - task_id: "T015"
+            description: "Add assignment-scoped attendance and exam progress aggregation."
+        notes: ""
+      - item_id: "6.2"
+        description: "Implement Class Progress card"
+        tasks:
+          - task_id: "T016"
+            description: "Implement class progress filter and summaries."
+        notes: ""
+
+missing_plan_items: []
+orphan_tasks: []
+
+upstream_trace:
+  - plan_item: "1.1"
+    source_requirements: ["REQ-002", "REQ-008"]
+    tasks: ["T001", "T002"]
+    full_trace: "REQ-002,REQ-008 → Phase-1.1 → T001,T002"
+  - plan_item: "1.2"
+    source_requirements: ["REQ-003"]
+    tasks: ["T003"]
+    full_trace: "REQ-003 → Phase-1.2 → T003"
+  - plan_item: "2.1"
+    source_requirements: ["REQ-002", "REQ-008"]
+    tasks: ["T004", "T005"]
+    full_trace: "REQ-002,REQ-008 → Phase-2.1 → T004,T005"
+  - plan_item: "3.1"
+    source_requirements: ["REQ-003", "REQ-008"]
+    tasks: ["T006"]
+    full_trace: "REQ-003,REQ-008 → Phase-3.1 → T006"
+  - plan_item: "3.2"
+    source_requirements: ["REQ-004", "REQ-008"]
+    tasks: ["T007"]
+    full_trace: "REQ-004,REQ-008 → Phase-3.2 → T007"
+  - plan_item: "3.3"
+    source_requirements: ["REQ-001", "REQ-003", "REQ-004"]
+    tasks: ["T008", "T009"]
+    full_trace: "REQ-001,REQ-003,REQ-004 → Phase-3.3 → T008,T009"
+  - plan_item: "4.1"
+    source_requirements: ["REQ-005", "REQ-008"]
+    tasks: ["T010"]
+    full_trace: "REQ-005,REQ-008 → Phase-4.1 → T010"
+  - plan_item: "4.2"
+    source_requirements: ["REQ-001", "REQ-005"]
+    tasks: ["T011", "T012"]
+    full_trace: "REQ-001,REQ-005 → Phase-4.2 → T011,T012"
+  - plan_item: "5.1"
+    source_requirements: ["REQ-006", "REQ-008"]
+    tasks: ["T013"]
+    full_trace: "REQ-006,REQ-008 → Phase-5.1 → T013"
+  - plan_item: "5.2"
+    source_requirements: ["REQ-001", "REQ-006"]
+    tasks: ["T014"]
+    full_trace: "REQ-001,REQ-006 → Phase-5.2 → T014"
+  - plan_item: "6.1"
+    source_requirements: ["REQ-007", "REQ-008"]
+    tasks: ["T015"]
+    full_trace: "REQ-007,REQ-008 → Phase-6.1 → T015"
+  - plan_item: "6.2"
+    source_requirements: ["REQ-001", "REQ-007"]
+    tasks: ["T016"]
+    full_trace: "REQ-001,REQ-007 → Phase-6.2 → T016"
+
+validation:
+  passed: true
+  errors: []
+  warnings: []

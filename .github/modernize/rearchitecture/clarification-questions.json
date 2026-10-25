@@ -1,0 +1,562 @@
+{
+  "schema": "clarification-questions/v1",
+  "generated_at": "2026-10-25T07:20:46Z",
+  "user_input": "Implement the teacher portal modernization exactly according to `/Users/pavitrakumarnayak/Codebase/scholora/.github/modernize/teacher-view/plan.md` and `research.md`. Before changes, inspect the repository/worktree and both artifacts. Preserve existing student-view behavior and user changes. Implement all requirements: five teacher dashboard cards; multi-section assignment in admin create/update; teacher profile; assigned-section rosters; teacher attendance read/write; teacher exam creation and marks; class progress metrics. Enforce teacher section authorization server-side, preserve admin/student permissions, do not repurpose student section mapping, and do not expose sensitive student profile data. Add focused API/UI tests and verify UI tests/build and API tests. Do not commit. Workspace: `/Users/pavitrakumarnayak/Codebase/scholora`. This is execution, not advice; return a concise report with modified files, test/build results, and blockers.",
+  "title": "Teacher portal modernization",
+  "assessment_snapshot": {
+    "intro": "The repository is a small two-module application, with manifests indicating a Java/Maven API and a JavaScript/TypeScript UI. The requested work extends the existing application rather than moving it to a new output location.",
+    "bullets": [
+      "Approximate recon count: 3,967 source lines across two modules",
+      "The request requires in-place teacher features while protecting existing student and admin behavior",
+      "The exact framework versions, UI library, and visual references are not established by the user prompt or coarse recon"
+    ]
+  },
+  "proposed_outcome": "Add the requested teacher dashboard, administration, profile, roster, attendance, exam/marks, and progress capabilities to the current application. Keep existing student behavior and admin/student permissions intact, enforce teacher section scope on the server, use a separate teacher-section mapping, avoid exposing sensitive student data, and add focused API/UI verification.",
+  "scope": [
+    "frontend",
+    "backend",
+    "generic"
+  ],
+  "status": "awaiting_answers",
+  "questions": [
+    {
+      "id": "F1",
+      "kit": "frontend",
+      "field": "target.framework",
+      "title": "Frontend framework",
+      "question": "Which frontend framework and version should be used for the teacher portal? If the intent is to keep the current UI stack unchanged, specify that and its version if known.",
+      "importance": "required",
+      "impact": 5,
+      "recommended": "Keep existing UI stack; verify version from repository",
+      "default": null,
+      "prefilled": true,
+      "prefilled_value": "Keep existing UI stack; verify version from repository",
+      "answer": null,
+      "depends_on": null,
+      "options": [
+        {
+          "value": "React 18",
+          "label": "React 18"
+        },
+        {
+          "value": "React 19",
+          "label": "React 19"
+        },
+        {
+          "value": "Vue 3",
+          "label": "Vue 3"
+        },
+        {
+          "value": "Angular 20",
+          "label": "Angular 20"
+        },
+        {
+          "value": "Keep existing UI stack; verify version from repository",
+          "label": "Keep existing UI stack; verify version from repository"
+        }
+      ],
+      "allow_other": true,
+      "type": "single_select"
+    },
+    {
+      "id": "F2",
+      "kit": "frontend",
+      "field": "target.component_library",
+      "title": "Component library",
+      "question": "Should the teacher portal reuse the existing component/UI library, or use a particular component library? Name/version the library if selecting a new one.",
+      "importance": "required",
+      "impact": 4,
+      "recommended": "Reuse existing component library and styling",
+      "default": null,
+      "prefilled": true,
+      "prefilled_value": "Reuse existing component library and styling",
+      "answer": null,
+      "depends_on": null,
+      "options": [
+        {
+          "value": "Reuse existing component library and styling",
+          "label": "Reuse existing component library and styling"
+        },
+        {
+          "value": "MUI v7",
+          "label": "MUI v7"
+        },
+        {
+          "value": "Ant Design v6",
+          "label": "Ant Design v6"
+        },
+        {
+          "value": "shadcn/ui",
+          "label": "shadcn/ui"
+        }
+      ],
+      "allow_other": true,
+      "type": "single_select"
+    },
+    {
+      "id": "F3",
+      "kit": "frontend",
+      "field": "visual.screenshots",
+      "title": "Current UI references",
+      "question": "Provide screenshots, screen recordings, or a staging URL for the current UI, if available. If none, say none.",
+      "importance": "required",
+      "impact": 5,
+      "recommended": null,
+      "default": null,
+      "prefilled": false,
+      "prefilled_value": null,
+      "answer": null,
+      "depends_on": null,
+      "type": "text",
+      "options": []
+    },
+    {
+      "id": "F4",
+      "kit": "frontend",
+      "field": "visual.design_system",
+      "title": "Design system",
+      "question": "What design system or token source should the new teacher UI follow? The default is to match existing styling using its CSS custom properties.",
+      "importance": "required",
+      "impact": 4,
+      "recommended": null,
+      "default": "match existing pixel-by-pixel using extracted CSS custom properties",
+      "prefilled": false,
+      "prefilled_value": null,
+      "answer": null,
+      "depends_on": null,
+      "type": "text",
+      "options": []
+    },
+    {
+      "id": "F5",
+      "kit": "frontend",
+      "field": "compliance.accessibility",
+      "title": "Accessibility target",
+      "question": "Which accessibility standard should the UI target?",
+      "importance": "recommended",
+      "impact": 3,
+      "recommended": "WCAG 2.1 AA",
+      "default": "WCAG 2.1 AA",
+      "prefilled": false,
+      "prefilled_value": null,
+      "answer": null,
+      "depends_on": null,
+      "options": [
+        {
+          "value": "WCAG 2.1 AA",
+          "label": "WCAG 2.1 AA"
+        },
+        {
+          "value": "WCAG 2.2 AA",
+          "label": "WCAG 2.2 AA"
+        },
+        {
+          "value": "Section 508",
+          "label": "Section 508"
+        },
+        {
+          "value": "None / not required",
+          "label": "None / not required"
+        }
+      ],
+      "allow_other": true,
+      "type": "single_select"
+    },
+    {
+      "id": "F6",
+      "kit": "frontend",
+      "field": "compatibility.browsers",
+      "title": "Browser support",
+      "question": "Which browsers/runtime versions must be supported?",
+      "importance": "recommended",
+      "impact": 2,
+      "recommended": "Modern evergreen browsers",
+      "default": "modern evergreen (Chrome, Firefox, Safari, Edge — latest 2 major versions)",
+      "prefilled": false,
+      "prefilled_value": null,
+      "answer": null,
+      "depends_on": null,
+      "options": [
+        {
+          "value": "Modern evergreen browsers",
+          "label": "Modern evergreen browsers"
+        },
+        {
+          "value": "Current and previous major versions",
+          "label": "Current and previous major versions"
+        },
+        {
+          "value": "Other specified browser matrix",
+          "label": "Other specified browser matrix"
+        }
+      ],
+      "allow_other": true,
+      "type": "single_select"
+    },
+    {
+      "id": "F7",
+      "kit": "frontend",
+      "field": "responsive.breakpoints",
+      "title": "Responsive strategy",
+      "question": "What responsive/breakpoint strategy should the teacher portal follow?",
+      "importance": "recommended",
+      "impact": 2,
+      "recommended": "Match existing layout and breakpoints",
+      "default": "mobile-first using existing breakpoints detected from codebase",
+      "prefilled": false,
+      "prefilled_value": null,
+      "answer": null,
+      "depends_on": null,
+      "options": [
+        {
+          "value": "Match existing layout and breakpoints",
+          "label": "Match existing layout and breakpoints"
+        },
+        {
+          "value": "Mobile-first",
+          "label": "Mobile-first"
+        },
+        {
+          "value": "Desktop-only",
+          "label": "Desktop-only"
+        }
+      ],
+      "allow_other": true,
+      "type": "single_select"
+    },
+    {
+      "id": "F8",
+      "kit": "frontend",
+      "field": "i18n.locales",
+      "title": "Languages/locales",
+      "question": "Which locales are in scope?",
+      "importance": "optional",
+      "impact": 1,
+      "recommended": "Preserve current locales",
+      "default": "preserve current locales; keep existing i18n library if present",
+      "prefilled": false,
+      "prefilled_value": null,
+      "answer": null,
+      "depends_on": null,
+      "options": [
+        {
+          "value": "Preserve current locales",
+          "label": "Preserve current locales"
+        },
+        {
+          "value": "English only",
+          "label": "English only"
+        },
+        {
+          "value": "No internationalization requirement",
+          "label": "No internationalization requirement"
+        }
+      ],
+      "allow_other": true,
+      "type": "single_select"
+    },
+    {
+      "id": "F9",
+      "kit": "frontend",
+      "field": "state_mgmt.preference",
+      "title": "State management",
+      "question": "Should the teacher portal preserve the existing client-side state-management approach?",
+      "importance": "optional",
+      "impact": 1,
+      "recommended": "Preserve existing pattern",
+      "default": "preserve existing pattern if identifiable; otherwise recommend minimal (component state + server-state library)",
+      "prefilled": false,
+      "prefilled_value": null,
+      "answer": null,
+      "depends_on": null,
+      "options": [
+        {
+          "value": "Preserve existing pattern",
+          "label": "Preserve existing pattern"
+        },
+        {
+          "value": "Component state plus server-state library",
+          "label": "Component state plus server-state library"
+        },
+        {
+          "value": "No preference",
+          "label": "No preference"
+        }
+      ],
+      "allow_other": true,
+      "type": "single_select"
+    },
+    {
+      "id": "F10",
+      "kit": "frontend",
+      "field": "routing.preference",
+      "title": "Routing strategy",
+      "question": "Should the teacher portal preserve the current routing strategy?",
+      "importance": "optional",
+      "impact": 1,
+      "recommended": "Preserve existing routing",
+      "default": "use the de-facto router for the chosen target framework",
+      "prefilled": false,
+      "prefilled_value": null,
+      "answer": null,
+      "depends_on": null,
+      "options": [
+        {
+          "value": "Preserve existing routing",
+          "label": "Preserve existing routing"
+        },
+        {
+          "value": "Use framework's standard router",
+          "label": "Use framework's standard router"
+        },
+        {
+          "value": "No preference",
+          "label": "No preference"
+        }
+      ],
+      "allow_other": true,
+      "type": "single_select"
+    },
+    {
+      "id": "B1",
+      "kit": "backend",
+      "field": "target.framework",
+      "title": "Backend framework",
+      "question": "Which backend framework/version should be used? If no stack change is intended, specify that the current Java/Maven API framework should remain unchanged and be verified from the repository.",
+      "importance": "required",
+      "impact": 4,
+      "recommended": "Keep existing Java/Maven API framework; verify version from repository",
+      "default": null,
+      "prefilled": true,
+      "prefilled_value": "Keep existing Java/Maven API framework; verify version from repository",
+      "answer": null,
+      "depends_on": null,
+      "options": [
+        {
+          "value": "Keep existing Java/Maven API framework; verify version from repository",
+          "label": "Keep existing Java/Maven API framework; verify version from repository"
+        },
+        {
+          "value": "Spring Boot 4.x",
+          "label": "Spring Boot 4.x"
+        },
+        {
+          "value": "Other existing framework/version",
+          "label": "Other existing framework/version"
+        }
+      ],
+      "allow_other": true,
+      "type": "single_select"
+    },
+    {
+      "id": "B2",
+      "kit": "backend",
+      "field": "api.contract_preservation",
+      "title": "API contract policy",
+      "question": "What is the policy for existing API contracts? The safe assumption is to preserve existing contracts and add only the teacher capabilities needed.",
+      "importance": "required",
+      "impact": 5,
+      "recommended": "partial: existing student/admin APIs preserved; additive teacher APIs allowed",
+      "default": "must preserve",
+      "prefilled": true,
+      "prefilled_value": "partial: existing student/admin APIs preserved; additive teacher APIs allowed",
+      "answer": null,
+      "depends_on": null,
+      "options": [
+        {
+          "value": "must preserve",
+          "label": "Must preserve; additive changes only"
+        },
+        {
+          "value": "can break with versioning",
+          "label": "Breaking changes allowed only with versioning"
+        },
+        {
+          "value": "can break",
+          "label": "Breaking changes allowed"
+        },
+        {
+          "value": "partial: existing student/admin APIs preserved; additive teacher APIs allowed",
+          "label": "Preserve student/admin APIs; additive teacher APIs allowed"
+        }
+      ],
+      "allow_other": true,
+      "type": "single_select"
+    },
+    {
+      "id": "B3",
+      "kit": "backend",
+      "field": "data.migration_strategy",
+      "title": "Data migration strategy",
+      "question": "How should schema/data changes be handled? The request implies adding a separate teacher-to-section association without repurposing student section mapping.",
+      "importance": "required",
+      "impact": 4,
+      "recommended": "in-place",
+      "default": "TBD / assess in research phase",
+      "prefilled": true,
+      "prefilled_value": "in-place",
+      "answer": null,
+      "depends_on": null,
+      "options": [
+        {
+          "value": "in-place",
+          "label": "In-place additive schema changes"
+        },
+        {
+          "value": "dual-write",
+          "label": "Dual-write during transition"
+        },
+        {
+          "value": "new schema",
+          "label": "New schema with ETL"
+        },
+        {
+          "value": "no migration",
+          "label": "No database migration"
+        },
+        {
+          "value": "TBD / assess in research phase",
+          "label": "Assess against research and existing schema"
+        }
+      ],
+      "allow_other": true,
+      "type": "single_select"
+    },
+    {
+      "id": "B4",
+      "kit": "backend",
+      "field": "auth.framework",
+      "title": "Authentication and authorization",
+      "question": "Should the current authentication mechanism be preserved while adding server-side authorization that restricts teachers to assigned sections?",
+      "importance": "recommended",
+      "impact": 4,
+      "recommended": "Preserve existing auth and enforce teacher assigned-section authorization",
+      "default": "preserve existing auth mechanism; detect from codebase",
+      "prefilled": true,
+      "prefilled_value": "Preserve existing auth and enforce teacher assigned-section authorization",
+      "answer": null,
+      "depends_on": null,
+      "options": [
+        {
+          "value": "Preserve existing auth and enforce teacher assigned-section authorization",
+          "label": "Preserve existing auth; enforce teacher assigned-section authorization"
+        },
+        {
+          "value": "Replace authentication framework",
+          "label": "Replace authentication framework"
+        }
+      ],
+      "allow_other": true,
+      "type": "single_select"
+    },
+    {
+      "id": "B5",
+      "kit": "backend",
+      "field": "nfr.sla",
+      "title": "Performance targets",
+      "question": "What performance/service-level targets should this feature meet?",
+      "importance": "recommended",
+      "impact": 1,
+      "recommended": "Match current production baseline; no regression",
+      "default": "match current production baseline; no regression",
+      "prefilled": false,
+      "prefilled_value": null,
+      "answer": null,
+      "depends_on": null,
+      "options": [
+        {
+          "value": "Match current production baseline; no regression",
+          "label": "Match current production baseline; no regression"
+        },
+        {
+          "value": "Specify explicit latency/throughput targets",
+          "label": "Specify explicit latency/throughput targets"
+        }
+      ],
+      "allow_other": true,
+      "type": "single_select"
+    },
+    {
+      "id": "G1",
+      "kit": "generic",
+      "field": "success.definition",
+      "title": "Definition of done",
+      "question": "What outcome defines success? The stated acceptance criteria can be confirmed or refined.",
+      "importance": "required",
+      "impact": 5,
+      "recommended": null,
+      "default": "feature parity with the current system; all existing user-facing behaviors preserved",
+      "prefilled": true,
+      "prefilled_value": "Implement the five teacher dashboard cards, multi-section admin assignment, teacher profile, assigned-section rosters, teacher attendance read/write, teacher exam creation and marks, and class progress metrics. Enforce teacher section authorization server-side; preserve student-view behavior and admin/student permissions; use a distinct teacher-section mapping; do not expose sensitive student profile data; add focused API/UI tests; verify UI tests/build and API tests; do not commit.",
+      "answer": null,
+      "depends_on": null,
+      "type": "text",
+      "options": []
+    },
+    {
+      "id": "G2",
+      "kit": "generic",
+      "field": "out_of_scope",
+      "title": "Out-of-scope boundaries",
+      "question": "Are there components or behaviors that must not be changed beyond the boundaries already stated?",
+      "importance": "recommended",
+      "impact": 3,
+      "recommended": null,
+      "default": "no explicit exclusions; agent will infer from project structure",
+      "prefilled": true,
+      "prefilled_value": "Do not regress existing student-view behavior or admin/student permissions; do not repurpose the student section mapping; do not expose sensitive student profile data; no commits.",
+      "answer": null,
+      "depends_on": null,
+      "type": "text",
+      "options": []
+    },
+    {
+      "id": "G3",
+      "kit": "generic",
+      "field": "existing_tests.posture",
+      "title": "Existing test policy",
+      "question": "How should existing tests be treated?",
+      "importance": "recommended",
+      "impact": 3,
+      "recommended": "must pass",
+      "default": "must pass",
+      "prefilled": true,
+      "prefilled_value": "must pass",
+      "answer": null,
+      "depends_on": null,
+      "options": [
+        {
+          "value": "must pass",
+          "label": "Must pass; preserve existing tests and add focused coverage"
+        },
+        {
+          "value": "can rewrite",
+          "label": "May replace with equivalent coverage"
+        },
+        {
+          "value": "ignore",
+          "label": "Ignore existing suite; write new coverage"
+        }
+      ],
+      "allow_other": true,
+      "type": "single_select"
+    },
+    {
+      "id": "G5",
+      "kit": "generic",
+      "field": "constraints.additional",
+      "title": "Additional constraints",
+      "question": "Any additional constraints beyond those already listed? The prefilled text captures the constraints from the request; revise or add to it if needed.",
+      "importance": "optional",
+      "impact": 2,
+      "recommended": null,
+      "default": "None beyond the decisions listed in this specification.",
+      "prefilled": true,
+      "prefilled_value": "Do not commit. Inspect both teacher-view plan.md and research.md before changes. Preserve the existing dirty worktree/user changes. Verify UI tests/build and API tests.",
+      "answer": null,
+      "depends_on": null,
+      "type": "text",
+      "options": []
+    }
+  ]
+}
