@@ -14,14 +14,14 @@ import type { ClassDirectory, SchoolClass, SchoolPerson } from "../../../types/a
 import { DropdownSelect } from "../../shared/DropdownSelect";
 
 export function ClassesPanel() {
-
   const [classes, setClasses] = useState<SchoolClass[]>([]);
-  const [openClassId, setOpenClassId] = useState<number | null>(null);
+  const [selectedSection, setSelectedSection] = useState<{ classId: number; sectionId: number } | null>(null);
   const [classDirectories, setClassDirectories] = useState<Record<number, ClassDirectory>>({});
   const [teachers, setTeachers] = useState<SchoolPerson[]>([]);
   const [classTeacherSelections, setClassTeacherSelections] = useState<Record<number, string>>({});
-  const [directoryLoading, setDirectoryLoading] = useState<number | null>(null);
-  const [directoryErrors, setDirectoryErrors] = useState<Record<number, string>>({});
+  const [subjectTeacherSelections, setSubjectTeacherSelections] = useState<Record<number, string>>({});
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [directoryError, setDirectoryError] = useState("");
   const [className, setClassName] = useState("");
   const [sectionNames, setSectionNames] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
@@ -31,6 +31,28 @@ export function ClassesPanel() {
 
   async function refreshClasses() {
     setClasses(await getClasses());
+  }
+
+  async function refreshClassDirectory(classId: number) {
+    const directory = await getClassDirectory(classId);
+    setClassDirectories((current) => ({ ...current, [classId]: directory }));
+    setClassTeacherSelections((current) => {
+      const next = { ...current };
+      directory.sections.forEach((section) => {
+        next[section.id] = section.classTeacher ? String(section.classTeacher.id) : "";
+      });
+      return next;
+    });
+    setSubjectTeacherSelections((current) => {
+      const next = { ...current };
+      directory.sections.forEach((section) => {
+        section.subjects.forEach((subject) => {
+          next[subject.id] = subject.teacher ? String(subject.teacher.id) : "";
+        });
+      });
+      return next;
+    });
+    return directory;
   }
 
   useEffect(() => {
@@ -71,6 +93,7 @@ export function ClassesPanel() {
       await createSection(schoolClass.id, name);
       setSectionNames((current) => ({ ...current, [schoolClass.id]: "" }));
       await refreshClasses();
+      if (classDirectories[schoolClass.id]) await refreshClassDirectory(schoolClass.id);
       setMessage(`Section added to ${schoolClass.name}.`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not add section.");
@@ -86,6 +109,8 @@ export function ClassesPanel() {
     try {
       await deleteSection(schoolClass.id, sectionId);
       await refreshClasses();
+      if (classDirectories[schoolClass.id]) await refreshClassDirectory(schoolClass.id);
+      if (selectedSection?.sectionId === sectionId) setSelectedSection(null);
       setMessage("Section removed.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not remove section.");
@@ -94,32 +119,17 @@ export function ClassesPanel() {
     }
   }
 
-  async function toggleClassDetails(schoolClass: SchoolClass) {
-    if (openClassId === schoolClass.id) {
-      setOpenClassId(null);
-      return;
-    }
-    setOpenClassId(schoolClass.id);
+  async function openSection(schoolClass: SchoolClass, sectionId: number) {
+    setSelectedSection({ classId: schoolClass.id, sectionId });
+    setDirectoryError("");
     if (classDirectories[schoolClass.id]) return;
-    setDirectoryLoading(schoolClass.id);
-    setDirectoryErrors((current) => ({ ...current, [schoolClass.id]: "" }));
+    setDirectoryLoading(true);
     try {
-      const directory = await getClassDirectory(schoolClass.id);
-      setClassDirectories((current) => ({ ...current, [schoolClass.id]: directory }));
-      setClassTeacherSelections((current) => {
-        const next = { ...current };
-        directory.sections.forEach((section) => {
-          next[section.id] = section.classTeacher ? String(section.classTeacher.id) : "";
-        });
-        return next;
-      });
+      await refreshClassDirectory(schoolClass.id);
     } catch (cause) {
-      setDirectoryErrors((current) => ({
-        ...current,
-        [schoolClass.id]: cause instanceof Error ? cause.message : "Could not load this class directory.",
-      }));
+      setDirectoryError(cause instanceof Error ? cause.message : "Could not load this section.");
     } finally {
-      setDirectoryLoading(null);
+      setDirectoryLoading(false);
     }
   }
 
@@ -130,8 +140,7 @@ export function ClassesPanel() {
     setMessage("");
     try {
       await assignClassTeacher(schoolClass.id, sectionId, selectedId ? Number(selectedId) : null);
-      const directory = await getClassDirectory(schoolClass.id);
-      setClassDirectories((current) => ({ ...current, [schoolClass.id]: directory }));
+      await refreshClassDirectory(schoolClass.id);
       setMessage(`Class teacher updated for ${schoolClass.name}.`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not assign the class teacher.");
@@ -144,15 +153,14 @@ export function ClassesPanel() {
     schoolClass: SchoolClass,
     sectionId: number,
     subjectId: number,
-    teacherId: string,
   ) {
+    const selectedId = subjectTeacherSelections[subjectId] ?? "";
     setBusy(true);
     setError("");
     setMessage("");
     try {
-      await assignSubjectTeacher(schoolClass.id, sectionId, subjectId, teacherId ? Number(teacherId) : null);
-      const directory = await getClassDirectory(schoolClass.id);
-      setClassDirectories((current) => ({ ...current, [schoolClass.id]: directory }));
+      await assignSubjectTeacher(schoolClass.id, sectionId, subjectId, selectedId ? Number(selectedId) : null);
+      await refreshClassDirectory(schoolClass.id);
       setMessage("Subject teacher updated.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not assign the subject teacher.");
@@ -167,8 +175,10 @@ export function ClassesPanel() {
         <div><p className="eyebrow">Academic setup</p><h3>Classes &amp; sections</h3></div>
         <span className="status-pill">Administration</span>
       </div>
-      <p className="muted">Create your school’s classes, then organize each one into sections.</p>
-      <form className="class-create-form" onSubmit={addClass}>
+      <p className="muted">{selectedSection
+        ? "Review the student roster and manage teacher assignments for this section."
+        : "Create classes and sections. Select a section to view its roster and manage its teachers."}</p>
+      {!selectedSection && <form className="class-create-form" onSubmit={addClass}>
         <label>
           Class name
           <input
@@ -181,10 +191,116 @@ export function ClassesPanel() {
           />
         </label>
         <button className="secondary-button" disabled={busy} type="submit">{busy ? "Saving…" : "Add class"}</button>
-      </form>
+      </form>}
       {error && <p className="form-error" role="alert">{error}</p>}
       {message && <p className="success-message" role="status">{message}</p>}
-      {loading ? <p className="muted">Loading classes…</p> : error && classes.length === 0 ? null : classes.length ? (
+      {selectedSection ? (
+        (() => {
+          const schoolClass = classes.find(({ id }) => id === selectedSection.classId);
+          const section = classDirectories[selectedSection.classId]?.sections
+            .find(({ id }) => id === selectedSection.sectionId);
+          if (directoryLoading) return <p className="muted">Loading section roster…</p>;
+          if (directoryError) return <div>
+            <p className="form-error" role="alert">{directoryError}</p>
+            <button className="quiet-button" onClick={() => setSelectedSection(null)} type="button">Back to classes &amp; sections</button>
+          </div>;
+          if (!schoolClass || !section) return <div>
+            <p className="class-empty">This section could not be found.</p>
+            <button className="quiet-button" onClick={() => setSelectedSection(null)} type="button">Back to classes &amp; sections</button>
+          </div>;
+          return (
+            <article className="class-directory section-detail-card">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">{schoolClass.name}</p>
+                  <h4>{schoolClass.name} · Section {section.name}</h4>
+                </div>
+                <button className="quiet-button" onClick={() => setSelectedSection(null)} type="button">
+                  Back to classes &amp; sections
+                </button>
+              </div>
+              <p className="muted">Manage the class teacher and subject teachers, and review every student in this section.</p>
+              <div className="class-teacher-assignment">
+                <DropdownSelect
+                  label={`Class teacher for ${schoolClass.name} ${section.name}`}
+                  onChange={(value) => setClassTeacherSelections((current) => ({
+                    ...current,
+                    [section.id]: value,
+                  }))}
+                  options={[
+                    { value: "", label: "Unassigned" },
+                    ...teachers.map((teacher) => ({ value: String(teacher.id), label: teacher.fullName })),
+                  ]}
+                  value={classTeacherSelections[section.id] ?? ""}
+                />
+                <button className="quiet-button" disabled={busy} onClick={() => void saveClassTeacher(schoolClass, section.id)} type="button">
+                  Save class teacher
+                </button>
+                <p className="muted">The class teacher can access this section.</p>
+              </div>
+              <div className="class-subject-teachers">
+                <h5>Subject teachers</h5>
+                {section.subjects.length ? (
+                  <ul className="directory-list">{section.subjects.map((subject) => {
+                    const experts = teachers.filter((teacher) =>
+                      teacher.subjectExpertise?.some((expertise) => expertise.toLocaleLowerCase() === subject.subject.toLocaleLowerCase()),
+                    );
+                    return (
+                      <li className="class-subject-teacher" key={subject.id}>
+                        <span>{subject.subject}</span>
+                        <DropdownSelect
+                          disabled={!experts.length || busy}
+                          hideLabel
+                          label={`Teacher for ${schoolClass.name} ${section.name} ${subject.subject}`}
+                          onChange={(teacherId) => setSubjectTeacherSelections((current) => ({
+                            ...current,
+                            [subject.id]: teacherId,
+                          }))}
+                          options={[
+                            { value: "", label: "Unassigned" },
+                            ...experts.map((teacher) => ({ value: String(teacher.id), label: teacher.fullName })),
+                          ]}
+                          value={subjectTeacherSelections[subject.id] ?? ""}
+                          wrapperClassName="class-subject-teacher-select"
+                        />
+                        <button
+                          aria-label={`Save teacher for ${schoolClass.name} ${section.name} ${subject.subject}`}
+                          className="quiet-button"
+                          disabled={!experts.length || busy}
+                          onClick={() => void saveSubjectTeacher(schoolClass, section.id, subject.id)}
+                          type="button"
+                        >Save teacher</button>
+                        {!experts.length && <small>No teacher has matching subject expertise.</small>}
+                      </li>
+                    );
+                  })}</ul>
+                ) : <p className="class-empty">Add subjects in Exam Setup before assigning subject teachers.</p>}
+              </div>
+              <div className="class-directory-columns section-roster">
+                <details className="student-roster-accordion">
+                  <summary>
+                    <span>Student roster</span>
+                    <span className="status-pill">{section.students.length} {section.students.length === 1 ? "student" : "students"}</span>
+                  </summary>
+                  {section.students.length ? (
+                    <ul className="directory-list">{section.students.map((student) => (
+                      <li key={student.id}>{student.rollNumber == null ? "" : `#${student.rollNumber} · `}{student.fullName}</li>
+                    ))}</ul>
+                  ) : <p className="class-empty">No students in this section.</p>}
+                </details>
+                <div>
+                  <h5>Teachers assigned to this section</h5>
+                  {section.teachers.length ? (
+                    <ul className="directory-list">{section.teachers.map((teacher) => (
+                      <li key={teacher.id}>{teacher.fullName}</li>
+                    ))}</ul>
+                  ) : <p className="class-empty">No teachers assigned to this section.</p>}
+                </div>
+              </div>
+            </article>
+          );
+        })()
+      ) : loading ? <p className="muted">Loading classes…</p> : error && classes.length === 0 ? null : classes.length ? (
         <div className="class-list">
           {classes.map((schoolClass) => (
             <article className="class-item" key={schoolClass.id}>
@@ -194,9 +310,6 @@ export function ClassesPanel() {
                   <p className="muted">{schoolClass.sections.length} {schoolClass.sections.length === 1 ? "section" : "sections"}</p>
                 </div>
                 <div className="class-actions">
-                  <button className="quiet-button" onClick={() => void toggleClassDetails(schoolClass)} type="button">
-                    {openClassId === schoolClass.id ? "Close class details" : "Open class details"}
-                  </button>
                   <form className="section-create-form" onSubmit={(event) => addSection(event, schoolClass)}>
                   <label className="visually-hidden" htmlFor={`section-${schoolClass.id}`}>Section name for {schoolClass.name}</label>
                   <input
@@ -211,99 +324,18 @@ export function ClassesPanel() {
                   </form>
                 </div>
               </div>
-              {openClassId === schoolClass.id && (
-                <div className="class-directory">
-                  {directoryLoading === schoolClass.id && <p className="muted">Loading class directory…</p>}
-                  {directoryErrors[schoolClass.id] && <p className="form-error" role="alert">{directoryErrors[schoolClass.id]}</p>}
-                  {classDirectories[schoolClass.id]?.sections.map((section) => (
-                    <section className="class-directory-section" key={section.id}>
-                      <h5>{schoolClass.name} · {section.name}</h5>
-                      <div className="class-teacher-assignment">
-                        <DropdownSelect
-                          label={`Class teacher for ${schoolClass.name} ${section.name}`}
-                          onChange={(value) => setClassTeacherSelections((current) => ({
-                            ...current,
-                            [section.id]: value,
-                          }))}
-                          options={[
-                            { value: "", label: "Unassigned" },
-                            ...teachers.map((teacher) => ({ value: String(teacher.id), label: teacher.fullName })),
-                          ]}
-                          value={classTeacherSelections[section.id] ?? ""}
-                        />
-                        <button
-                          className="quiet-button"
-                          disabled={busy}
-                          onClick={() => void saveClassTeacher(schoolClass, section.id)}
-                          type="button"
-                        >Save class teacher</button>
-                        <p className="muted">The class teacher can access this section.</p>
-                      </div>
-                      <div className="class-directory-columns">
-                        <div>
-                          <h6>Students</h6>
-                          {section.students.length ? (
-                            <ul className="directory-list">{section.students.map((student) => (
-                              <li key={student.id}>{student.rollNumber == null ? "" : `#${student.rollNumber} · `}{student.fullName}</li>
-                            ))}</ul>
-                          ) : <p className="class-empty">No students in this section.</p>}
-                        </div>
-                        <div>
-                          <h6>Teachers</h6>
-                          {section.teachers.length ? (
-                            <ul className="directory-list">{section.teachers.map((teacher) => (
-                              <li key={teacher.id}>{teacher.fullName}</li>
-                            ))}</ul>
-                          ) : <p className="class-empty">No teachers assigned to this section.</p>}
-                        </div>
-                      </div>
-                      <div className="class-subject-teachers">
-                        <h6>Subject teachers</h6>
-                        {section.subjects.length ? (
-                          <ul className="directory-list">{section.subjects.map((subject) => {
-                            const experts = teachers.filter((teacher) =>
-                              teacher.subjectExpertise?.some((expertise) => expertise.toLocaleLowerCase() === subject.subject.toLocaleLowerCase()),
-                            );
-                            return (
-                              <li className="class-subject-teacher" key={subject.id}>
-                                <span>{subject.subject}</span>
-                                <DropdownSelect
-                                  disabled={!experts.length || busy}
-                                  hideLabel
-                                  label={`Teacher for ${schoolClass.name} ${section.name} ${subject.subject}`}
-                                  onChange={(teacherId) => void saveSubjectTeacher(
-                                    schoolClass,
-                                    section.id,
-                                    subject.id,
-                                    teacherId,
-                                  )}
-                                  options={[
-                                    { value: "", label: "Unassigned" },
-                                    ...experts.map((teacher) => ({ value: String(teacher.id), label: teacher.fullName })),
-                                  ]}
-                                  value={subject.teacher ? String(subject.teacher.id) : ""}
-                                  wrapperClassName="class-subject-teacher-select"
-                                />
-                                {!experts.length && <small>No teacher has matching subject expertise.</small>}
-                              </li>
-                            );
-                          })}</ul>
-                        ) : <p className="class-empty">Add subjects in Exam Setup before assigning subject teachers.</p>}
-                      </div>
-                    </section>
-                  ))}
-                  {classDirectories[schoolClass.id]?.sections.length === 0 && (
-                    <p className="class-empty">Add sections to view their teachers and students.</p>
-                  )}
-                </div>
-              )}
               {schoolClass.sections.length ? (
                 <ul className="section-list">
                   {schoolClass.sections.map((section) => (
                     <li className="section-chip" key={section.id}>
-                      <span>{section.name}</span>
+                      <button
+                        className="section-open-button"
+                        onClick={() => void openSection(schoolClass, section.id)}
+                        type="button"
+                      >{section.name}</button>
                       <button
                         aria-label={`Remove section ${section.name} from ${schoolClass.name}`}
+                        className="section-remove-button"
                         disabled={busy}
                         onClick={() => removeSection(schoolClass, section.id)}
                         type="button"
@@ -320,5 +352,4 @@ export function ClassesPanel() {
       )}
     </section>
   );
-
 }

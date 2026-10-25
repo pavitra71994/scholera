@@ -208,11 +208,11 @@ describe("classes and sections management", () => {
     expect(await screen.findByText("No sections yet. Add one to organize this class.")).toBeInTheDocument();
   });
 
-  it("opens a class to show students and assigned teachers by section", async () => {
+  it("opens an individual section card with its roster and teacher assignments", async () => {
     vi.mocked(getClasses).mockResolvedValue([{
       id: 1,
       name: "Grade 5",
-      sections: [{ id: 10, name: "A" }],
+      sections: [{ id: 10, name: "A" }, { id: 11, name: "B" }],
     }]);
     vi.mocked(getClassDirectory).mockResolvedValue({
       id: 1,
@@ -224,6 +224,13 @@ describe("classes and sections management", () => {
         students: [{ id: 21, fullName: "Ari Student", rollNumber: 3 }],
         teachers: [{ id: 31, fullName: "Ravi Teacher" }],
         subjects: [{ id: 45, subject: "Mathematics", teacher: null }],
+      }, {
+        id: 11,
+        name: "B",
+        classTeacher: null,
+        students: [{ id: 22, fullName: "Bea Student", rollNumber: 4 }],
+        teachers: [],
+        subjects: [],
       }],
     });
     vi.mocked(getPeople).mockResolvedValue([{
@@ -244,17 +251,33 @@ describe("classes and sections management", () => {
     vi.mocked(assignSubjectTeacher).mockResolvedValue();
 
     render(<ClassesManagement />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open class details" }));
+    fireEvent.click(await screen.findByRole("button", { name: "A" }));
 
+    expect(await screen.findByRole("heading", { name: "Grade 5 · Section A" })).toBeInTheDocument();
+    const studentRoster = screen.getByText("Student roster").closest("summary");
+    const rosterAccordion = studentRoster?.parentElement;
+    expect(studentRoster).toHaveTextContent("1 student");
+    expect(rosterAccordion).toHaveProperty("open", false);
+    fireEvent.click(studentRoster!);
     expect(await screen.findByText((_, element) =>
       element?.tagName === "LI" && Boolean(element.textContent?.includes("Ari Student")))).toBeInTheDocument();
+    expect(rosterAccordion).toHaveProperty("open", true);
+    fireEvent.click(studentRoster!);
+    expect(rosterAccordion).toHaveProperty("open", false);
+    expect(screen.queryByText("Bea Student")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "B" })).not.toBeInTheDocument();
     expect(screen.getByText("Ravi Teacher")).toBeInTheDocument();
     await chooseDropdownOption("Class teacher for Grade 5 A", "Ravi Teacher");
+    expect(assignClassTeacher).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Save class teacher" }));
     await waitFor(() => expect(assignClassTeacher).toHaveBeenCalledWith(1, 10, 31));
     await chooseDropdownOption("Teacher for Grade 5 A Mathematics", "Ravi Teacher");
+    expect(assignSubjectTeacher).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save teacher for Grade 5 A Mathematics" }));
     await waitFor(() => expect(assignSubjectTeacher).toHaveBeenCalledWith(1, 10, 45, 31));
     expect(getClassDirectory).toHaveBeenCalledWith(1);
+    fireEvent.click(screen.getByRole("button", { name: "Back to classes & sections" }));
+    expect(await screen.findByRole("button", { name: "B" })).toBeInTheDocument();
   });
 });
 
